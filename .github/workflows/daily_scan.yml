@@ -1,16 +1,21 @@
 # .github/workflows/daily_scan.yml
 # PLACEMENT: .github/workflows/daily_scan.yml (exact path)
 #
-# UPGRADES & FIXES (PolyBet v2.0):
-# 1. Added missing `BLS_API_KEY` secret to `env:` (previously omitted, causing
-#    sources/bls.py to run unauthenticated and hit rate limits in CI).
-# 2. Unified concurrency group (`polybet-repo-write`) shared with
-#    `weekly_report.yml` so concurrent runs never collide on `git push`.
-# 3. Added `git pull --rebase --autostash origin HEAD` before `git push` to
-#    prevent non-fast-forward push rejections.
-# 4. `main.py` now deduplicates same-day entries before writing to
-#    `predictions_log.csv`, so if attempt 1 fails during Telegram sending and
-#    attempt 2 re-runs, `predictions_log.csv` will never get duplicate rows.
+# UPGRADES & FIXES (PolyBet v2.0 — Zero-Config Unique GitHub Link per Message):
+# 1. NO `DASHBOARD_URL` SECRET REQUIRED:
+#    Automatically uses GitHub's built-in `GITHUB_REPOSITORY` (`owner/repo`) and
+#    `GITHUB_REF_NAME` (`main`) to generate a unique HTML snapshot per scan:
+#      `docs/scans/scan-<YYYYMMDD-HHMMSS>.html`
+#    Every Telegram message automatically contains:
+#      - Instant Web Preview Link (`https://htmlpreview.github.io/?...` — works immediately
+#        with zero GitHub Pages configuration!)
+#      - Unique GitHub Pages Snapshot Link (`https://<owner>.github.io/<repo>/scans/scan-<id>.html`)
+# 2. PUSH-BEFORE-SEND ORDER:
+#    First generates the HTML & unique snapshot, commits & pushes `docs/` to GitHub,
+#    and THEN dispatches the Telegram message so the unique link is 100% live the
+#    instant the message arrives in Telegram.
+# 3. Added `BLS_API_KEY`, unified concurrency group `polybet-repo-write`, and
+#    `git pull --rebase --autostash origin HEAD`.
 
 name: PolyBet Daily Scan
 
@@ -42,9 +47,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run PolyBet scan (with retry on transient failures)
+      - name: Run PolyBet scan & generate unique HTML snapshot
         env:
           SEND_LIVE_SIGNALS: "true"
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
@@ -58,30 +66,40 @@ jobs:
           set +e
           for attempt in 1 2 3; do
             echo "=== Attempt $attempt of 3 ==="
-            python main.py
+            python main.py --prepare-telegram /tmp/polybet_telegram_msg.txt
             status=$?
             if [ $status -eq 0 ]; then
-              echo "Succeeded on attempt $attempt."
+              echo "Scan succeeded on attempt $attempt."
               exit 0
             fi
             echo "Attempt $attempt failed (exit code $status)."
             if [ $attempt -lt 3 ]; then
-              echo "Waiting 30 seconds before retrying..."
-              sleep 30
+              echo "Waiting 20 seconds before retrying..."
+              sleep 20
             fi
           done
           echo "All 3 attempts failed."
           exit 1
 
-      - name: Commit updated dashboard + log
+      - name: Commit & push updated dashboard + unique scan snapshot to GitHub
         run: |
           git config user.name "polybet-bot"
           git config user.email "polybet-bot@users.noreply.github.com"
-          git add docs/index.html predictions_log.csv
+          git add docs/ predictions_log.csv
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "Daily scan: $(date -u +'%Y-%m-%d %H:%M UTC')"
             git pull --rebase --autostash origin HEAD
             git push
+          fi
+
+      - name: Send Telegram digest with unique live GitHub link
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -f /tmp/polybet_telegram_msg.txt ]; then
+            python main.py --send-prepared /tmp/polybet_telegram_msg.txt
           fi

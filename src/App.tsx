@@ -6,6 +6,7 @@ import {
   Calculator,
   Download,
   RefreshCw,
+  Send,
   Terminal,
 } from 'lucide-react';
 import { ScannerTerminalView, ScannerOpportunity } from './components/ScannerTerminalView';
@@ -52,6 +53,7 @@ export default function App() {
   const [data, setData] = useState<DatasetPayload | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [scanningLive, setScanningLive] = useState<boolean>(false);
+  const [sendingTelegram, setSendingTelegram] = useState<boolean>(false);
   const [scanStatusText, setScanStatusText] = useState<string>('');
   const [bankroll, setBankroll] = useState<number>(1000);
   const [simulatorTargetOpp, setSimulatorTargetOpp] = useState<ScannerOpportunity | null>(null);
@@ -90,6 +92,21 @@ export default function App() {
     } finally {
       setScanningLive(false);
       setTimeout(() => setScanStatusText(''), 4000);
+    }
+  };
+
+  const handleSendTelegram = async () => {
+    setSendingTelegram(true);
+    setScanStatusText('در حال ارسال گزارش به تلگرام...');
+    try {
+      const resp = await fetch('/api/telegram/send', { method: 'POST' });
+      const result = await resp.json();
+      setScanStatusText(result.statusFa || 'پاسخ از سرور تلگرام دریافت شد');
+    } catch {
+      setScanStatusText('خطا در ارسال درخواست تلگرام');
+    } finally {
+      setSendingTelegram(false);
+      setTimeout(() => setScanStatusText(''), 6000);
     }
   };
 
@@ -177,20 +194,25 @@ export default function App() {
 
           {/* Zone 3: Primary Action CTAs */}
           <div className="flex items-center gap-2 shrink-0">
-            {scanStatusText && (
-              <span className="text-[11px] text-emerald-400 hidden xl:inline">
-                {scanStatusText}
-              </span>
-            )}
             <a
               href="/api/download-github-repo"
               download="polybet-quant-v2-github-repo.zip"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors whitespace-nowrap shrink-0"
               title="دانلود کامل ریپازیتوری گیت‌هاب ربات پایتون به همراه پوشه‌های .git، .github/workflows، sources و docs"
             >
               <Download className="w-3.5 h-3.5" />
               <span>دانلود ریپوی گیت‌هاب (.ZIP)</span>
             </a>
+            <button
+              type="button"
+              onClick={handleSendTelegram}
+              disabled={sendingTelegram}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 disabled:opacity-60 text-sky-300 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+              title="ارسال فوری خلاصه سیگنال‌های روزانه به تلگرام"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>ارسال تلگرام</span>
+            </button>
             <button
               type="button"
               onClick={handleLiveScan}
@@ -202,6 +224,11 @@ export default function App() {
             </button>
           </div>
         </div>
+        {scanStatusText && (
+          <div className="bg-slate-900/95 border-t border-slate-800 px-4 py-1.5 text-center text-xs text-emerald-400">
+            {scanStatusText}
+          </div>
+        )}
       </header>
 
       {/* Main Content Viewport */}

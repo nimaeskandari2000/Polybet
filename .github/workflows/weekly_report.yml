@@ -1,14 +1,15 @@
 # .github/workflows/weekly_report.yml
 # PLACEMENT: .github/workflows/weekly_report.yml (exact path)
 #
-# UPGRADES & FIXES (PolyBet v2.0):
-# 1. Unified concurrency group (`polybet-repo-write`) shared with
-#    `daily_scan.yml` to prevent git push conflicts.
-# 2. Added `rebuild_cache` workflow_dispatch input (and automatic self-healing
-#    in `weekly_report.py`) to repair legacy rows in `predictions_resolved.csv`
-#    where single binary markets had `primary_outcome == title` and were
-#    falsely marked `is_correct = False`.
-# 3. Added `git pull --rebase --autostash origin HEAD` before `git push`.
+# UPGRADES & FIXES (PolyBet v2.0 — Zero-Config Unique GitHub Link per Report):
+# 1. NO `DASHBOARD_URL` SECRET REQUIRED:
+#    Automatically uses `GITHUB_REPOSITORY` (`owner/repo`) and `GITHUB_REF_NAME`
+#    to create a permanent snapshot `docs/scans/results-<YYYYMMDD-HHMMSS>.html`
+#    and sends both the instant preview link (`htmlpreview.github.io`) and
+#    GitHub Pages link in Telegram.
+# 2. PUSH-BEFORE-SEND ORDER:
+#    Commits and pushes `docs/` and `predictions_resolved.csv` to GitHub FIRST,
+#    then dispatches the Telegram message so the unique link is immediately live.
 
 name: PolyBet Weekly Report
 
@@ -51,25 +52,38 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run report and self-heal resolution cache
+      - name: Run report, self-heal resolution cache & generate unique snapshot
         env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
           DEBUG_RESOLUTION: ${{ secrets.DEBUG_RESOLUTION }}
           TRIGGER_SOURCE: ${{ inputs.trigger_source || 'scheduled' }}
           REBUILD_RESOLVED_CACHE: ${{ inputs.rebuild_cache || 'false' }}
-        run: python weekly_report.py
+        run: python weekly_report.py --prepare-telegram /tmp/polybet_weekly_msg.txt
 
-      - name: Commit updated resolution cache + results dashboard
+      - name: Commit & push updated resolution cache + unique results snapshot
         run: |
           git config user.name "polybet-bot"
           git config user.email "polybet-bot@users.noreply.github.com"
-          git add predictions_resolved.csv docs/results.html
+          git add predictions_resolved.csv docs/
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "Report run ($TRIGGER_SOURCE): $(date -u +'%Y-%m-%d %H:%M UTC')"
             git pull --rebase --autostash origin HEAD
             git push
+          fi
+
+      - name: Send Telegram weekly report with unique live GitHub link
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -f /tmp/polybet_weekly_msg.txt ]; then
+            python weekly_report.py --send-prepared /tmp/polybet_weekly_msg.txt
           fi
