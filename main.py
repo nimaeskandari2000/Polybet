@@ -1,32 +1,22 @@
 """
-main.py — PolyBet v2.0 Orchestrator (Zero-Config Unique GitHub Links per Scan).
+main.py — PolyBet v2.0 Orchestrator.
 
 REPLACES your current main.py.
 
-KEY FEATURES & FIXES IN THIS VERSION:
-1. ZERO-CONFIG UNIQUE GITHUB LINKS PER TELEGRAM MESSAGE:
-   You do NOT need to configure `DASHBOARD_URL`!
-   On every run, `main.py` automatically detects your GitHub repository
-   (`owner/repo`) from GitHub Actions' built-in `GITHUB_REPOSITORY` variable
-   (or `git remote get-url origin`) and generates a unique timestamped snapshot:
-     `docs/scans/scan-<YYYYMMDD-HHMMSS>.html`
-   Every Telegram message automatically includes:
-   - Instant Unique Web Preview Link (`htmlpreview.github.io` — works immediately
-     on any public GitHub repo even without enabling GitHub Pages!)
-   - Unique GitHub Pages Snapshot Link (`https://<owner>.github.io/<repo>/scans/scan-<id>.html`)
-   - Main Live Dashboard Link (`https://<owner>.github.io/<repo>/?scan=<id>`)
-2. PUSH-FIRST WORKFLOW SUPPORT (`--prepare-telegram`):
-   Allows `daily_scan.yml` to commit & push `docs/scans/scan-<id>.html` to GitHub
-   FIRST, and then send the Telegram message so the unique link is already live
-   on GitHub the moment the Telegram notification arrives.
-3. FIX BUG #1 (Binary Single-Market Outcome Bug):
+KEY FEATURES & FIXES:
+1. Clean Telegram Summary with ONE Single GitHub Pages Link (no signal spam inside
+   the Telegram message):
+     https://<username>.github.io/<repo>/
+   Automatically detected from `GITHUB_REPOSITORY` (or `DASHBOARD_URL` if set).
+2. FIX BUG #1 (Binary Single-Market Outcome Bug):
    Preserves `["Yes", "No"]` outcomes for single binary markets inside event wrappers.
+3. FIX WORKFLOW RETRY DUPLICATES:
+   `_already_logged_today` prevents duplicate CSV rows on workflow retries.
 """
 
 from __future__ import annotations
 
 import csv
-import glob
 import logging
 import os
 import re
@@ -39,7 +29,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from html_generator import build_html, write_html
+from html_generator import write_html
 from position_logic import PositionPlan, build_position_plan
 from scanner import ScannedMarket, scan_markets
 from sources.aggregator import build_signal
@@ -49,8 +39,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 DOCS_HTML_PATH = os.getenv("HTML_OUTPUT_PATH", "docs/index.html")
-SCANS_ARCHIVE_DIR = os.getenv("SCANS_ARCHIVE_DIR", "docs/scans")
-MAX_ARCHIVED_SCANS = 30
 PREDICTIONS_LOG_PATH = os.getenv("PREDICTIONS_LOG_PATH", "predictions_log.csv")
 SEND_PER_MARKET_MESSAGES = os.getenv("SEND_PER_MARKET_MESSAGES", "false").lower() == "true"
 
@@ -65,11 +53,13 @@ NUMERIC_SIGNAL_DOMAINS: frozenset[str] = frozenset(
 )
 
 
-def detect_github_repo() -> tuple[str, str]:
-    """Auto-detect `(owner/repo, branch)` from GitHub Actions env or local `.git` remote."""
-    gh_repo = (os.getenv("GITHUB_REPOSITORY") or "").strip()
-    branch = (os.getenv("GITHUB_REF_NAME") or "main").strip() or "main"
+def resolve_dashboard_url() -> str:
+    """Return the single GitHub Pages URL (`https://<owner>.github.io/<repo>/`)."""
+    explicit = (os.getenv("DASHBOARD_URL") or "").strip()
+    if explicit:
+        return explicit.rstrip("/") + "/"
 
+    gh_repo = (os.getenv("GITHUB_REPOSITORY") or "").strip()
     if "/" not in gh_repo:
         try:
             remote_url = subprocess.check_output(
@@ -83,56 +73,10 @@ def detect_github_repo() -> tuple[str, str]:
         except Exception:
             pass
 
-    return gh_repo, branch
-
-
-def build_unique_scan_urls(scan_id: str) -> dict[str, str]:
-    """Build unique, clickable GitHub links for this specific scan with zero manual config."""
-    explicit_base = (os.getenv("DASHBOARD_URL") or "").strip().rstrip("/")
-    gh_repo, branch = detect_github_repo()
-
-    urls: dict[str, str] = {}
-    if gh_repo and "/" in gh_repo:
+    if "/" in gh_repo:
         owner, repo = gh_repo.split("/", 1)
-        pages_base = explicit_base or f"https://{owner}.github.io/{repo}"
-        raw_blob_url = f"https://github.com/{owner}/{repo}/blob/{branch}/docs/scans/scan-{scan_id}.html"
-        urls["instant_preview_url"] = f"https://htmlpreview.github.io/?{raw_blob_url}"
-        urls["unique_pages_url"] = f"{pages_base}/scans/scan-{scan_id}.html"
-        urls["live_dashboard_url"] = f"{pages_base}/?scan={scan_id}"
-        urls["github_Run_url"] = (
-            f"https://github.com/{gh_repo}/actions/runs/{os.getenv('GITHUB_RUN_ID')}"
-            if os.getenv("GITHUB_RUN_ID")
-            else raw_blob_url
-        )
-    elif explicit_base:
-        urls["unique_pages_url"] = f"{explicit_base}/scans/scan-{scan_id}.html"
-        urls["live_dashboard_url"] = f"{explicit_base}/?scan={scan_id}"
-
-    return urls
-
-
-def write_unique_scan_snapshot(scan_id: str, html_results: list, generated_at: datetime) -> str:
-    """Write a permanent unique snapshot `docs/scans/scan-<scan_id>.html` and prune old archives."""
-    os.makedirs(SCANS_ARCHIVE_DIR, exist_ok=True)
-    snapshot_path = os.path.join(SCANS_ARCHIVE_DIR, f"scan-{scan_id}.html")
-    content = build_html(html_results, generated_at=generated_at)
-    # Adjust relative navbar links (`href="index.html"` -> `href="../index.html"`) inside `docs/scans/`
-    content_adjusted = content.replace('href="index.html"', 'href="../index.html"').replace(
-        'href="results.html"', 'href="../results.html"'
-    )
-    with open(snapshot_path, "w", encoding="utf-8") as f:
-        f.write(content_adjusted)
-
-    # Keep only the latest MAX_ARCHIVED_SCANS files so the git repo stays lightweight
-    existing = sorted(glob.glob(os.path.join(SCANS_ARCHIVE_DIR, "scan-*.html")))
-    if len(existing) > MAX_ARCHIVED_SCANS:
-        for old_file in existing[:-MAX_ARCHIVED_SCANS]:
-            try:
-                os.remove(old_file)
-            except OSError:
-                pass
-
-    return snapshot_path
+        return f"https://{owner}.github.io/{repo}/"
+    return ""
 
 
 def group_scanned_markets(markets: list[ScannedMarket]) -> list[list[ScannedMarket]]:
@@ -267,51 +211,20 @@ def append_prediction_log(
         writer.writerow(row)
 
 
-def build_daily_summary_text(html_results: list, scan_id: str, generated_at: datetime) -> str:
-    """Format the daily Telegram digest including unique GitHub links for this scan."""
+def build_daily_summary_text(num_events: int, generated_at: datetime) -> str:
+    """Short, clean Telegram summary with ONLY ONE link (no signal list inside the message)."""
     timestamp_str = generated_at.strftime("%Y-%m-%d %H:%M UTC")
-    num_events = len(html_results)
-    urls = build_unique_scan_urls(scan_id)
+    dashboard_url = resolve_dashboard_url()
 
     lines = [
-        "📊 *گزارش اسکن روزانه PolyBet Quant v2.0*",
-        f"🆔 شناسه یکتای اسکن: `{scan_id}`",
-        f"🕒 زمان اسکن: {timestamp_str}",
-        f"🔢 تعداد رویدادهای تحلیل‌شده: {num_events}",
+        "📊 اسکن روزانه‌ی PolyBet انجام شد.",
+        "",
+        f"🕒 {timestamp_str}",
+        f"🔢 تعداد رویدادهای بررسی‌شده: {num_events}",
     ]
-
-    if html_results:
+    if dashboard_url:
         lines.append("")
-        lines.append("🎯 *برترین موقعیت‌های کالیبره‌شده این اسکن:*")
-        sorted_items = sorted(
-            html_results,
-            key=lambda item: (item[2].consensus_score, item[2].edge),
-            reverse=True,
-        )
-        for idx, (market, title, plan, days_to_resolve) in enumerate(sorted_items[:8], start=1):
-            primary = plan.primary
-            if not primary:
-                continue
-            clean_title = (title or market.question or "").replace("*", "")
-            clean_outcome = (primary.outcome or "").replace("*", "")
-            price_c = (primary.market_price or 0.0) * 100.0
-            net_roi = getattr(primary, "net_roi_if_wins_pct", None)
-            roi_str = f" | سود خالص: {net_roi:+.1f}%" if net_roi is not None else ""
-            lines.append(
-                f"{idx}. *{clean_title}*\n"
-                f"   🟢 گزینه اصلی: {clean_outcome} ({primary.size_pct:.1f}% @ {price_c:.1f}¢){roi_str} | ⏳ {days_to_resolve:.1f}d"
-            )
-
-    if urls.get("instant_preview_url"):
-        lines.append("")
-        lines.append(f"⚡ مشاهده فوری داشبورد یکتای این اسکن (بدون نیاز به تنظیمات):\n{urls['instant_preview_url']}")
-    if urls.get("unique_pages_url"):
-        lines.append("")
-        lines.append(f"🌐 لینک یکتای GitHub Pages این اسکن:\n{urls['unique_pages_url']}")
-    if urls.get("live_dashboard_url"):
-        lines.append("")
-        lines.append(f"📊 داشبورد اصلی (آخرین وضعیت):\n{urls['live_dashboard_url']}")
-
+        lines.append(f"🔗 مشاهده‌ی داشبورد کامل:\n{dashboard_url}")
     return "\n".join(lines)
 
 
@@ -333,7 +246,6 @@ def run(window_days: float = 7.0, dry_run: bool | None = None, prepare_telegram_
     load_dotenv()
     dry_run = _should_dry_run(dry_run)
     now_utc = datetime.now(timezone.utc)
-    scan_id = now_utc.strftime("%Y%m%d-%H%M%S")
 
     markets = scan_markets(window_days=window_days)
     logger.info("Scanned %d markets within %.0f-day resolve window.", len(markets), window_days)
@@ -377,17 +289,16 @@ def run(window_days: float = 7.0, dry_run: bool | None = None, prepare_telegram_
     try:
         os.makedirs(os.path.dirname(DOCS_HTML_PATH) or ".", exist_ok=True)
         write_html(DOCS_HTML_PATH, html_results, generated_at=now_utc)
-        snapshot_path = write_unique_scan_snapshot(scan_id, html_results, generated_at=now_utc)
-        logger.info("Wrote HTML dashboard to %s and unique snapshot to %s", DOCS_HTML_PATH, snapshot_path)
+        logger.info("Wrote HTML dashboard to %s", DOCS_HTML_PATH)
     except OSError as exc:
         logger.warning("Failed to write HTML dashboard: %s", exc)
 
-    summary_text = build_daily_summary_text(html_results, scan_id=scan_id, generated_at=now_utc)
+    summary_text = build_daily_summary_text(len(groups), generated_at=now_utc)
 
     if prepare_telegram_path:
         with open(prepare_telegram_path, "w", encoding="utf-8") as f:
             f.write(summary_text)
-        logger.info("Prepared Telegram summary with unique links at %s", prepare_telegram_path)
+        logger.info("Prepared Telegram summary at %s", prepare_telegram_path)
     elif dry_run:
         logger.info("DRY RUN — prepared summary:\n%s", summary_text)
     else:

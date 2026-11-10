@@ -99,7 +99,8 @@ function loadAndAuditProjectData() {
 
   const rootLogCsv = path.join(__dirname, 'predictions_log.csv');
   const legacyLogAsset = path.join(__dirname, 'public/assets/aistudio/predictions_log_20669978.csv');
-  const logPath = fs.existsSync(rootLogCsv) ? rootLogCsv : legacyLogAsset;
+  const logPath =
+    fs.existsSync(rootLogCsv) && fs.statSync(rootLogCsv).size > 50 ? rootLogCsv : legacyLogAsset;
 
   const rawResolvedRecords = readCsvRecords(resolvedPath);
   const rawLogRecords = readCsvRecords(logPath);
@@ -505,27 +506,16 @@ async function startServer() {
     }
 
     const nowUtc = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
-    const topSignals = opps.slice(0, 6);
     const lines: string[] = [
-      '📊 گزارش اسکن روزانه PolyBet Quant v2.0',
+      '📊 اسکن روزانه PolyBet Quant v2.0 تکمیل شد',
       `🕒 زمان اسکن: ${nowUtc}`,
-      `🔢 تعداد بازارهای تحلیل‌شده: ${opps.length}`,
+      `🔢 تعداد بازارهای کالیبره‌شده: ${opps.length}`,
       `🏆 نرخ برد بک‌تست کالیبره: ${cachedData.auditResult.summary.repairedWinRatePct}%`,
-      '',
-      '🎯 برترین موقعیت‌های کالیبره‌شده:',
     ];
-
-    topSignals.forEach((opp, idx) => {
-      const p = opp.planV2;
-      const netRoi = p.allocations[0]?.netRoiIfWinsPct ?? 0;
-      lines.push(
-        `${idx + 1}. ${opp.title}\n   🟢 گزینه اصلی: ${p.primaryOutcome} (${p.primarySizePct.toFixed(1)}% @ ${(p.primaryMarketPrice * 100).toFixed(1)}¢) | سود خالص: ${netRoi >= 0 ? '+' : ''}${netRoi.toFixed(1)}%`
-      );
-    });
 
     const dashUrl = (process.env.DASHBOARD_URL || process.env.APP_URL || '').trim();
     if (dashUrl && dashUrl !== 'MY_APP_URL') {
-      lines.push('', `🔗 مشاهده داشبورد کامل:\n${dashUrl}`);
+      lines.push('', `🔗 مشاهده داشبورد کامل سیگنال‌ها:\n${dashUrl}`);
     }
 
     const text = lines.join('\n');

@@ -1,16 +1,11 @@
 """
-weekly_report.py — PolyBet v2.0 Resolution & Self-Healing Cache Auditor (Zero-Config Unique GitHub Links).
+weekly_report.py — PolyBet v2.0 Resolution & Self-Healing Cache Auditor.
 
 REPLACES your current weekly_report.py.
 
-KEY FEATURES & FIXES IN THIS VERSION:
-1. ZERO-CONFIG UNIQUE GITHUB LINKS PER WEEKLY REPORT:
-   You do NOT need to configure `DASHBOARD_URL`!
-   Automatically detects `owner/repo` from GitHub Actions (`GITHUB_REPOSITORY`)
-   or local `git remote`, saves a permanent timestamped snapshot
-   `docs/scans/results-<YYYYMMDD-HHMMSS>.html` alongside `docs/results.html`,
-   and includes both the instant web preview link (`htmlpreview.github.io`)
-   and the GitHub Pages link in every Telegram report.
+KEY FEATURES & FIXES:
+1. Sends ONE clean GitHub Pages link (`https://<username>.github.io/<repo>/results.html`)
+   in the Telegram report, automatically detected from `GITHUB_REPOSITORY` or `DASHBOARD_URL`.
 2. FIX BUG #1 (Self-Healing for Single-Market Binary Events):
    Automatically repairs cached rows where `primary_outcome.lower() == title.lower()`
    and `resolved_outcome in ("Yes", "No")`.
@@ -21,7 +16,6 @@ KEY FEATURES & FIXES IN THIS VERSION:
 from __future__ import annotations
 
 import csv
-import glob
 import json
 import logging
 import os
@@ -37,7 +31,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from results_html_generator import build_results_html, write_results_html
+from results_html_generator import write_results_html
 from telegram_bot import send_message
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -52,8 +46,6 @@ REBUILD_RESOLVED_CACHE = os.getenv("REBUILD_RESOLVED_CACHE", "false").lower() ==
 PREDICTIONS_LOG_PATH = os.getenv("PREDICTIONS_LOG_PATH", "predictions_log.csv")
 PREDICTIONS_RESOLVED_PATH = os.getenv("PREDICTIONS_RESOLVED_PATH", "predictions_resolved.csv")
 RESULTS_HTML_PATH = os.getenv("RESULTS_HTML_PATH", "docs/results.html")
-SCANS_ARCHIVE_DIR = os.getenv("SCANS_ARCHIVE_DIR", "docs/scans")
-MAX_ARCHIVED_REPORTS = 30
 
 RESOLVED_FIELDS = [
     "group_key", "title", "category", "logged_at_utc", "market_url",
@@ -62,14 +54,18 @@ RESOLVED_FIELDS = [
 ]
 
 REPORT_TITLES = {
-    "scheduled": "📈 *گزارش هفتگی و بک‌تست PolyBet Quant v2.0*",
-    "telegram_button": "🔘 *نتایج نهایی PolyBet Quant v2.0 (به‌درخواست شما)*",
+    "scheduled": "📈 *گزارش هفتگی PolyBet*",
+    "telegram_button": "🔘 *نتایج نهایی PolyBet (به‌درخواست شما)*",
 }
 
 
-def detect_github_repo() -> tuple[str, str]:
+def resolve_results_url() -> str:
+    """Return the single GitHub Pages results URL (`https://<owner>.github.io/<repo>/results.html`)."""
+    explicit = (os.getenv("DASHBOARD_URL") or "").strip().rstrip("/")
+    if explicit:
+        return f"{explicit}/results.html"
+
     gh_repo = (os.getenv("GITHUB_REPOSITORY") or "").strip()
-    branch = (os.getenv("GITHUB_REF_NAME") or "main").strip() or "main"
     if "/" not in gh_repo:
         try:
             remote_url = subprocess.check_output(
@@ -82,51 +78,11 @@ def detect_github_repo() -> tuple[str, str]:
                 gh_repo = m.group(1)
         except Exception:
             pass
-    return gh_repo, branch
 
-
-def build_unique_results_urls(report_id: str) -> dict[str, str]:
-    explicit_base = (os.getenv("DASHBOARD_URL") or "").strip().rstrip("/")
-    gh_repo, branch = detect_github_repo()
-
-    urls: dict[str, str] = {}
-    if gh_repo and "/" in gh_repo:
+    if "/" in gh_repo:
         owner, repo = gh_repo.split("/", 1)
-        pages_base = explicit_base or f"https://{owner}.github.io/{repo}"
-        raw_blob_url = f"https://github.com/{owner}/{repo}/blob/{branch}/docs/scans/results-{report_id}.html"
-        urls["instant_preview_url"] = f"https://htmlpreview.github.io/?{raw_blob_url}"
-        urls["unique_pages_url"] = f"{pages_base}/scans/results-{report_id}.html"
-        urls["live_results_url"] = f"{pages_base}/results.html?run={report_id}"
-    elif explicit_base:
-        urls["unique_pages_url"] = f"{explicit_base}/scans/results-{report_id}.html"
-        urls["live_results_url"] = f"{explicit_base}/results.html?run={report_id}"
-
-    return urls
-
-
-def write_unique_results_snapshot(
-    report_id: str,
-    resolved_rows: list[dict],
-    generated_at: datetime,
-    log_by_key: dict[str, dict] | None = None,
-) -> str:
-    os.makedirs(SCANS_ARCHIVE_DIR, exist_ok=True)
-    snapshot_path = os.path.join(SCANS_ARCHIVE_DIR, f"results-{report_id}.html")
-    content = build_results_html(resolved_rows, generated_at=generated_at, log_by_key=log_by_key)
-    content_adjusted = content.replace('href="index.html"', 'href="../index.html"').replace(
-        'href="results.html"', 'href="../results.html"'
-    )
-    with open(snapshot_path, "w", encoding="utf-8") as f:
-        f.write(content_adjusted)
-
-    existing = sorted(glob.glob(os.path.join(SCANS_ARCHIVE_DIR, "results-*.html")))
-    if len(existing) > MAX_ARCHIVED_REPORTS:
-        for old_file in existing[:-MAX_ARCHIVED_REPORTS]:
-            try:
-                os.remove(old_file)
-            except OSError:
-                pass
-    return snapshot_path
+        return f"https://{owner}.github.io/{repo}/results.html"
+    return ""
 
 
 def load_predictions_log(path: str) -> list[dict]:
@@ -347,12 +303,12 @@ def build_weekly_stats(resolved_rows: list[dict], since: datetime) -> dict:
     }
 
 
-def format_weekly_report(stats: dict, report_id: str, trigger_source: str = "scheduled") -> str:
+def format_weekly_report(stats: dict, trigger_source: str = "scheduled") -> str:
     header = REPORT_TITLES.get(trigger_source, REPORT_TITLES["scheduled"])
     scope_label = "کل تاریخچه" if stats.get("is_all_time_fallback") else "۷ روز اخیر"
-    urls = build_unique_results_urls(report_id)
+    results_url = resolve_results_url()
 
-    lines = [header, f"🆔 شناسه گزارش: `{report_id}`", ""]
+    lines = [header, ""]
     lines.append(f"🔢 سیگنال‌های بررسی‌شده ({scope_label}): {stats['total']}")
     lines.append(f"✅ نتیجه‌ی نهایی مشخص شده: {stats['decided']}")
     lines.append(f"⏳ هنوز در انتظار نتیجه: {stats['pending']}")
@@ -369,15 +325,9 @@ def format_weekly_report(stats: dict, report_id: str, trigger_source: str = "sch
             clean_cat = (category or "other").replace("_", " ")
             lines.append(f"  • {clean_cat}: {correct}/{total} ({rate:.0f}%)")
 
-    if urls.get("instant_preview_url"):
+    if results_url:
         lines.append("")
-        lines.append(f"⚡ مشاهده فوری جدول کامل این گزارش (بدون نیاز به تنظیمات):\n{urls['instant_preview_url']}")
-    if urls.get("unique_pages_url"):
-        lines.append("")
-        lines.append(f"🌐 لینک یکتای GitHub Pages این گزارش:\n{urls['unique_pages_url']}")
-    if urls.get("live_results_url"):
-        lines.append("")
-        lines.append(f"📄 جدول اصلی نتایج:\n{urls['live_results_url']}")
+        lines.append(f"📄 جدول کامل نتایج:\n{results_url}")
 
     return "\n".join(lines)
 
@@ -386,7 +336,6 @@ def run(dry_run: bool = False, prepare_telegram_path: str | None = None) -> str:
     load_dotenv()
     trigger_source = os.getenv("TRIGGER_SOURCE", "scheduled")
     now_utc = datetime.now(timezone.utc)
-    report_id = now_utc.strftime("%Y%m%d-%H%M%S")
 
     raw_log_rows = load_predictions_log(PREDICTIONS_LOG_PATH)
     if not raw_log_rows:
@@ -411,16 +360,13 @@ def run(dry_run: bool = False, prepare_telegram_path: str | None = None) -> str:
     try:
         os.makedirs(os.path.dirname(RESULTS_HTML_PATH) or ".", exist_ok=True)
         write_results_html(RESULTS_HTML_PATH, resolved_rows, generated_at=now_utc, log_by_key=log_by_key)
-        snapshot_path = write_unique_results_snapshot(
-            report_id, resolved_rows, generated_at=now_utc, log_by_key=log_by_key
-        )
-        logger.info("Wrote results dashboard to %s and unique snapshot to %s", RESULTS_HTML_PATH, snapshot_path)
+        logger.info("Wrote results dashboard to %s", RESULTS_HTML_PATH)
     except OSError as exc:
         logger.warning("Failed to write results dashboard: %s", exc)
 
     since = now_utc - timedelta(days=7)
     stats = build_weekly_stats(resolved_rows, since)
-    report = format_weekly_report(stats, report_id=report_id, trigger_source=trigger_source)
+    report = format_weekly_report(stats, trigger_source=trigger_source)
 
     if prepare_telegram_path:
         with open(prepare_telegram_path, "w", encoding="utf-8") as f:
