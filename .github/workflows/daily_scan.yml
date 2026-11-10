@@ -1,0 +1,87 @@
+# .github/workflows/daily_scan.yml
+# PLACEMENT: .github/workflows/daily_scan.yml (exact path)
+#
+# UPGRADES & FIXES (PolyBet v2.0):
+# 1. Added missing `BLS_API_KEY` secret to `env:` (previously omitted, causing
+#    sources/bls.py to run unauthenticated and hit rate limits in CI).
+# 2. Unified concurrency group (`polybet-repo-write`) shared with
+#    `weekly_report.yml` so concurrent runs never collide on `git push`.
+# 3. Added `git pull --rebase --autostash origin HEAD` before `git push` to
+#    prevent non-fast-forward push rejections.
+# 4. `main.py` now deduplicates same-day entries before writing to
+#    `predictions_log.csv`, so if attempt 1 fails during Telegram sending and
+#    attempt 2 re-runs, `predictions_log.csv` will never get duplicate rows.
+
+name: PolyBet Daily Scan
+
+on:
+  schedule:
+    - cron: "12 17 * * *"   # 17:12 UTC = ~20:42 Iran time
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: polybet-repo-write
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run PolyBet scan (with retry on transient failures)
+        env:
+          SEND_LIVE_SIGNALS: "true"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+          BEA_API_KEY: ${{ secrets.BEA_API_KEY }}
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: |
+          set +e
+          for attempt in 1 2 3; do
+            echo "=== Attempt $attempt of 3 ==="
+            python main.py
+            status=$?
+            if [ $status -eq 0 ]; then
+              echo "Succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "Attempt $attempt failed (exit code $status)."
+            if [ $attempt -lt 3 ]; then
+              echo "Waiting 30 seconds before retrying..."
+              sleep 30
+            fi
+          done
+          echo "All 3 attempts failed."
+          exit 1
+
+      - name: Commit updated dashboard + log
+        run: |
+          git config user.name "polybet-bot"
+          git config user.email "polybet-bot@users.noreply.github.com"
+          git add docs/index.html predictions_log.csv
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Daily scan: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git pull --rebase --autostash origin HEAD
+            git push
+          fi
