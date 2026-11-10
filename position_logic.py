@@ -1,25 +1,23 @@
 """
-position_logic.py — PolyBet v2.0 Position Sizing & Multi-Leg Hedge Engine.
+position_logic.py — PolyBet v2.0 Position Sizing & Smart Hedge Engine.
 
-REPLACES your current position_logic.py.
-
-KEY FIXES IN THIS VERSION:
-1. FIX BUG #6 (Barrier Option Longshot Guard):
-   Detects "What price will X hit?" / arrow barrier options (`↑ $4,700`) with
-   `primary_price < 0.15` and caps their risk at 5% instead of dumping 35% into
-   primary and 65% into non-exclusive barrier options.
-2. FIX BUG #2 (True Net Scenario ROI Accounting):
-   Computes `net_roi_if_wins_pct = (size_pct / market_price) - total_allocated_pct`
-   for EVERY leg (Primary, Secondary, Hedge) so you can see the exact net profit/loss
-   on total capital under every possible resolution scenario.
+Clean, practical sizing logic:
+1. Primary leg sized to guarantee target profit margin (default +5%) when Primary wins.
+2. Filters out micro-tail outcomes (< 5 cents) so capital is never wasted on 0.15c noise.
+3. Selects at most 2 realistic backup/hedge outcomes (price >= 5c) and allocates
+   remaining capital proportionally to their probabilities.
+4. If Primary is >= 88c (high-certainty favorite) or no realistic backup (>= 5c) exists,
+   allocates 100% cleanly to Primary.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from sources.aggregator import MarketSignal
+if TYPE_CHECKING:
+    from sources.aggregator import MarketSignal
 
 
 @dataclass
@@ -32,6 +30,9 @@ class PositionConfig:
     secondary_cumulative_cap_pct: float = 90.0
     guaranteed_margin_pct: float = 0.05
     barrier_trap_max_pct: float = 5.0
+    min_backup_price: float = 0.05
+    max_backup_legs: int = 2
+    high_prob_solo_threshold: float = 0.88
 
 
 DEFAULT_CONFIG = PositionConfig()
@@ -123,10 +124,9 @@ def build_position_plan(
 
     if signal.num_sources == 0:
         primary_outcome = max(price_by_outcome, key=price_by_outcome.get)
-        consensus_score = 0.0
+        consensus_score = round(min(98.0, max(45.0, price_by_outcome.get(primary_outcome, 0.5) * 100.0)), 1)
         edge = 0.0
         x_pct = config.min_x_pct
-        warning = "no independent sources available — sized at floor, using market-implied favorite"
     else:
         model_probability = signal.mean_probability
         if len(ordered_outcomes) == 2 and "Yes" in price_by_outcome and "No" in price_by_outcome:
@@ -142,7 +142,7 @@ def build_position_plan(
 
     primary_price = price_by_outcome.get(primary_outcome, 0.0)
 
-    # Guard against non-exclusive Barrier Option Traps (Bug #6 Fix)
+    # Guard against non-exclusive Barrier Option Traps
     if is_barrier_option_trap(question, primary_outcome, primary_price):
         capped_size = round(min(config.barrier_trap_max_pct, max(1.0, primary_price * 200.0)), 2)
         allocations = [
@@ -161,7 +161,7 @@ def build_position_plan(
             edge=edge,
             num_sources=signal.num_sources,
             allocations=allocations,
-            warning="Barrier option longshot detected — capped allocation at 5% without non-exclusive hedges.",
+            warning="بازار پرریسک (احتمال زیر ۱۵٪): حداکثر ۵٪ سرمایه وارد شود.",
             guaranteed_margin_pct=None,
         )
 
@@ -169,6 +169,38 @@ def build_position_plan(
     if floor_pct > x_pct:
         x_pct = floor_pct
     x_pct = min(x_pct, 100.0)
+
+    # Filter remaining outcomes to realistic contenders only (price >= 5 cents)
+    viable_backups = sorted(
+        [
+            o for o in ordered_outcomes
+            if o != primary_outcome and price_by_outcome.get(o, 0.0) >= config.min_backup_price
+        ],
+        key=lambda o: price_by_outcome[o],
+        reverse=True,
+    )[: config.max_backup_legs]
+
+    # If primary is >= 88c or there are no viable backups >= 5c, put 100% on Primary
+    if primary_price >= config.high_prob_solo_threshold or not viable_backups or x_pct >= 98.0:
+        allocations = [
+            PositionAllocation(
+                outcome=primary_outcome,
+                size_pct=100.0,
+                role="primary",
+                market_price=primary_price,
+            )
+        ]
+        _attach_net_roi(allocations)
+        return PositionPlan(
+            market_id=market_id,
+            question=question,
+            consensus_score=consensus_score,
+            edge=edge,
+            num_sources=signal.num_sources,
+            allocations=allocations,
+            warning=warning,
+            guaranteed_margin_pct=round((1.0 / primary_price) - 1.0, 4) if primary_price > 0 else None,
+        )
 
     allocations = [
         PositionAllocation(
@@ -179,60 +211,27 @@ def build_position_plan(
         )
     ]
 
-    remaining_pct = 100.0 - x_pct
-    remaining_outcomes = [o for o in ordered_outcomes if o != primary_outcome]
+    remaining_pct = round(100.0 - round(x_pct, 2), 2)
+    backup_weight_total = sum(price_by_outcome[o] for o in viable_backups) or 1.0
 
-    if remaining_pct <= 0 or not remaining_outcomes:
-        pass
-    elif len(remaining_outcomes) <= 1:
-        allocations.append(
-            PositionAllocation(
-                outcome=remaining_outcomes[0],
-                size_pct=round(remaining_pct, 2),
-                role="hedge",
-                market_price=price_by_outcome.get(remaining_outcomes[0]),
-            )
-        )
-    else:
-        cumulative_pct = primary_price * 100.0
-        remaining_sorted = sorted(remaining_outcomes, key=lambda o: price_by_outcome[o], reverse=True)
-        secondary_selected = []
-        for outcome in remaining_sorted:
-            if cumulative_pct >= config.secondary_cumulative_cap_pct:
-                break
-            secondary_selected.append(outcome)
-            cumulative_pct += price_by_outcome[outcome] * 100.0
+    allocated_backups = 0.0
+    for idx, outcome in enumerate(viable_backups):
+        if idx == len(viable_backups) - 1:
+            leg_pct = round(remaining_pct - allocated_backups, 2)
+        else:
+            share = price_by_outcome[outcome] / backup_weight_total
+            leg_pct = round(remaining_pct * share, 2)
+            allocated_backups += leg_pct
 
-        secondary_weight_total = sum(price_by_outcome[o] for o in secondary_selected) or 1.0
-        secondary_budget = remaining_pct * 0.6
-        hedge_budget = remaining_pct - secondary_budget
-
-        for outcome in secondary_selected:
-            share = price_by_outcome[outcome] / secondary_weight_total
+        if leg_pct > 0:
             allocations.append(
                 PositionAllocation(
                     outcome=outcome,
-                    size_pct=round(secondary_budget * share, 2),
-                    role="secondary",
+                    size_pct=leg_pct,
+                    role="secondary" if idx == 0 else "hedge",
                     market_price=price_by_outcome[outcome],
                 )
             )
-
-        hedge_candidates = [o for o in remaining_outcomes if o not in secondary_selected]
-        if hedge_candidates:
-            hedge_weight_total = sum(price_by_outcome[o] for o in hedge_candidates) or 1.0
-            for outcome in hedge_candidates:
-                share = price_by_outcome[outcome] / hedge_weight_total
-                allocations.append(
-                    PositionAllocation(
-                        outcome=outcome,
-                        size_pct=round(hedge_budget * share, 2),
-                        role="hedge",
-                        market_price=price_by_outcome[outcome],
-                    )
-                )
-        elif secondary_selected:
-            allocations[-1].size_pct = round(allocations[-1].size_pct + hedge_budget, 2)
 
     _attach_net_roi(allocations)
     return PositionPlan(

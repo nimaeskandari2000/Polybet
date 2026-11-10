@@ -116,89 +116,85 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex flex-col">
-      {/* Top Bar Contract: 3 Distinct Zones (Brand — 4 Nav Links — Primary Actions) */}
-      <header className="sticky top-0 z-40 bg-[#0B0F17]/95 backdrop-blur border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          {/* Zone 1: Brand Identity */}
+    <div className="min-h-screen bg-[#080D1A] text-slate-100 flex flex-col">
+      <header className="sticky top-0 z-40 bg-[#080D1A]/90 backdrop-blur-md border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+          {/* Brand */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
               <Terminal className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm sm:text-base tracking-tight text-slate-100 font-mono">
-                  POLYBET QUANT v2.0
-                </span>
-              </div>
+              <span className="font-extrabold text-sm sm:text-base text-white block">
+                دستیار هوشمند معاملات Polymarket
+              </span>
               <p className="text-[11px] text-slate-400 hidden sm:block">
-                ترمینال کوانت، سایزینگ کِلی و حسابرسی بازارهای پیش‌بینی
+                پیشنهاد شفاف خرید، محاسبه خودکار سود خالص و بیمه ریسک
               </p>
             </div>
           </div>
 
-          {/* Zone 2: 4 Primary Navigation Tabs */}
-          <nav aria-label="ناوبری اصلی" className="flex items-center gap-1">
+          {/* Friendly Navigation Tabs */}
+          <nav aria-label="ناوبری اصلی" className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => setActiveTab('scanner')}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                 activeTab === 'scanner'
-                  ? 'bg-slate-800 text-emerald-400 border-b-2 border-emerald-400'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25'
+                  : 'bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700'
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
-              <span>ترمینال سیگنال و اسکنر</span>
+              <span>📡 پیشنهادهای امروز</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('backtest')}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                 activeTab === 'backtest'
-                  ? 'bg-slate-800 text-emerald-400 border-b-2 border-emerald-400'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25'
+                  : 'bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700'
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>بک‌تست و عملکرد (67.8% vs 58.5%)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('audit')}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
-                activeTab === 'audit'
-                  ? 'bg-slate-800 text-emerald-400 border-b-2 border-emerald-400'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Bug className="w-3.5 h-3.5" />
-              <span>ریپوی گیت‌هاب + ۱۱ باگ</span>
+              <span>🏆 کارنامه و نتایج قبلی</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('simulator')}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                 activeTab === 'simulator'
-                  ? 'bg-slate-800 text-emerald-400 border-b-2 border-emerald-400'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25'
+                  : 'bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700'
               }`}
             >
               <Calculator className="w-3.5 h-3.5" />
-              <span>شبیه‌ساز کِلی و هجینگ</span>
+              <span>🧮 ماشین‌حساب دستی</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('audit')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                activeTab === 'audit'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/25'
+                  : 'bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              <Bug className="w-3.5 h-3.5" />
+              <span>📦 کدها و ریپوی گیت‌هاب</span>
             </button>
           </nav>
 
-          {/* Zone 3: Primary Action CTAs */}
+          {/* Action CTAs */}
           <div className="flex items-center gap-2 shrink-0">
             <a
               href="/api/download-github-repo"
               download="polybet-quant-v2-github-repo.zip"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors whitespace-nowrap shrink-0"
-              title="دانلود کامل ریپازیتوری گیت‌هاب ربات پایتون به همراه پوشه‌های .git، .github/workflows، sources و docs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors whitespace-nowrap shrink-0 shadow-md shadow-emerald-600/20"
             >
               <Download className="w-3.5 h-3.5" />
               <span>دانلود ریپوی گیت‌هاب (.ZIP)</span>
@@ -207,8 +203,7 @@ export default function App() {
               type="button"
               onClick={handleSendTelegram}
               disabled={sendingTelegram}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/40 disabled:opacity-60 text-sky-300 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
-              title="ارسال فوری خلاصه سیگنال‌های روزانه به تلگرام"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/35 disabled:opacity-60 text-sky-300 text-xs font-bold transition-colors whitespace-nowrap shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
               <span>ارسال تلگرام</span>
@@ -217,10 +212,10 @@ export default function App() {
               type="button"
               onClick={handleLiveScan}
               disabled={scanningLive}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-60 text-slate-200 text-xs font-medium transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 disabled:opacity-60 text-slate-200 text-xs font-bold transition-colors whitespace-nowrap shrink-0"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${scanningLive ? 'animate-spin' : ''}`} />
-              <span className="hidden md:inline">اسکن زنده</span>
+              <span className="hidden md:inline">بروزرسانی زنده</span>
             </button>
           </div>
         </div>

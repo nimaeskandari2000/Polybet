@@ -3,14 +3,14 @@ import {
   Search,
   Sparkles,
   ExternalLink,
-  AlertTriangle,
-  ArrowUpDown,
   ShieldCheck,
-  TrendingUp,
-  Layers,
   X,
   CheckCircle2,
   Calculator,
+  ChevronDown,
+  Clock,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
 import { PositionPlanV2, CATEGORY_LABELS_FA } from '../lib/quantEngine';
 
@@ -49,6 +49,18 @@ interface Props {
   onLoadInSimulator: (opp: ScannerOpportunity) => void;
 }
 
+function formatTimeLeftFa(days: number): string {
+  if (days <= 0) return 'در حال بسته شدن';
+  const hours = Math.round(days * 24);
+  if (hours < 24) return `${Math.max(1, hours)} ساعت مانده`;
+  const wholeDays = Math.floor(days);
+  const remHours = Math.round((days - wholeDays) * 24);
+  if (remHours > 0 && wholeDays < 3) {
+    return `${wholeDays} روز و ${remHours} ساعت مانده`;
+  }
+  return `${days.toFixed(1)} روز مانده`;
+}
+
 export const ScannerTerminalView: React.FC<Props> = ({
   opportunities,
   bankroll,
@@ -56,27 +68,30 @@ export const ScannerTerminalView: React.FC<Props> = ({
   onLoadInSimulator,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'confidence' | 'edge' | 'ev' | 'days'>('confidence');
-  const [hideBarrierTraps, setHideBarrierTraps] = useState<boolean>(false);
+  const [selectedSection, setSelectedSection] = useState<'all' | 'economy' | 'markets' | 'politics'>('all');
+  const [sortBy, setSortBy] = useState<'prob' | 'days' | 'roi'>('prob');
 
   const [aiModalOpp, setAiModalOpp] = useState<ScannerOpportunity | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<{ source: string; analysis: AiAnalysisResult } | null>(null);
 
-  const categories = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const o of opportunities) {
-      counts[o.category] = (counts[o.category] || 0) + 1;
+  const getSectionForCategory = (cat: string): 'economy' | 'markets' | 'politics' => {
+    if (['fed', 'cpi', 'pce', 'gdp', 'employment', 'ecb', 'boe', 'boc', 'central_banks_other'].includes(cat)) {
+      return 'economy';
     }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [opportunities]);
+    if (['stocks', 'commodities', 'crypto'].includes(cat)) {
+      return 'markets';
+    }
+    return 'politics';
+  };
 
   const filteredOpportunities = useMemo(() => {
     return opportunities
       .filter((o) => {
-        if (selectedCategory !== 'all' && o.category !== selectedCategory) return false;
-        if (hideBarrierTraps && o.planV2.isLongshotBarrierTrap) return false;
+        if (o.planV2.isLongshotBarrierTrap) return false;
+        if (selectedSection !== 'all' && getSectionForCategory(o.category) !== selectedSection) {
+          return false;
+        }
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           return (
@@ -88,18 +103,22 @@ export const ScannerTerminalView: React.FC<Props> = ({
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === 'confidence') {
-          return b.planV2.effectiveConfidenceScore - a.planV2.effectiveConfidenceScore;
+        if (sortBy === 'days') {
+          return a.daysToResolve - b.daysToResolve;
         }
-        if (sortBy === 'edge') {
-          return Math.abs(b.planV2.edge) - Math.abs(a.planV2.edge);
+        if (sortBy === 'roi') {
+          const roiA = a.planV2.allocations[0]?.netRoiIfWinsPct ?? 0;
+          const roiB = b.planV2.allocations[0]?.netRoiIfWinsPct ?? 0;
+          return roiB - roiA;
         }
-        if (sortBy === 'ev') {
-          return b.planV2.expectedValuePct - a.planV2.expectedValuePct;
-        }
-        return a.daysToResolve - b.daysToResolve;
+        return b.planV2.primaryMarketPrice - a.planV2.primaryMarketPrice;
       });
-  }, [opportunities, selectedCategory, hideBarrierTraps, searchQuery, sortBy]);
+  }, [opportunities, selectedSection, searchQuery, sortBy]);
+
+  const highProbCount = useMemo(
+    () => filteredOpportunities.filter((o) => o.planV2.primaryMarketPrice >= 0.8).length,
+    [filteredOpportunities]
+  );
 
   const triggerAiAnalysis = async (opp: ScannerOpportunity) => {
     setAiModalOpp(opp);
@@ -136,401 +155,425 @@ export const ScannerTerminalView: React.FC<Props> = ({
     }
   };
 
-  const trapCount = useMemo(
-    () => opportunities.filter((o) => o.planV2.isLongshotBarrierTrap).length,
-    [opportunities]
-  );
-  const binaryRepairedCount = useMemo(
-    () =>
-      opportunities.filter(
-        (o) => o.legacyPrimaryOutcome.toLowerCase() === o.title.toLowerCase()
-      ).length,
-    [opportunities]
-  );
-
   return (
     <div className="space-y-6">
-      {/* Top Quantitative Summary Strip */}
-      <div className="grid grid-cols-1 md:grid-cols-4 border border-slate-800 bg-[#0F1623] divide-y md:divide-y-0 md:divide-x md:divide-x-reverse divide-slate-800">
-        <div className="p-4">
-          <div className="text-xs text-slate-400">فرصت‌های فعال کالیبره‌شده</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-100">
-              {filteredOpportunities.length}
-            </span>
-            <span className="text-xs text-emerald-400 font-mono tabular-nums">
-              از {opportunities.length} بازار کل
-            </span>
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            حذف خودکار بازارهای ورزشی و اصلاح دسته‌بندی BoE
-          </div>
+      {/* Simple 3-Step Visual Guide Banner */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-slate-900/90 to-sky-500/10 p-5 shadow-lg">
+        <div className="text-sm font-extrabold text-emerald-400 mb-3 flex items-center gap-2">
+          <span>💡 راهنمای سریع استفاده (در ۳ قدم ساده):</span>
         </div>
-
-        <div className="p-4">
-          <div className="text-xs text-slate-400">اصلاح باگ خروجی باینری (Yes/No)</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono tabular-nums text-emerald-400">
-              {binaryRepairedCount}
-            </span>
-            <span className="text-xs text-slate-400">بازار تک‌گزینه‌ای</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-xl bg-slate-950/75 border border-slate-800 p-3.5 text-xs text-slate-300 leading-relaxed">
+            <strong className="text-white block text-sm mb-1">۱. تعیین مبلغ سرمایه</strong>
+            در کادر سبز زیر بنویسید برای هر بازار چند دلار در نظر گرفته‌اید (مثلاً ۱۰۰ یا ۱۰۰۰ دلار).
           </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            جلوگیری از ثبت عنوان سؤال به جای گزینه «Yes» یا «No»
+          <div className="rounded-xl bg-slate-950/75 border border-slate-800 p-3.5 text-xs text-slate-300 leading-relaxed">
+            <strong className="text-white block text-sm mb-1">۲. مشاهده پیشنهاد خرید</strong>
+            در هر کارت، <span className="text-emerald-400 font-bold">«گام ۱ (کادر سبز)»</span> دقیقاً نشان می‌دهد کدام گزینه را بخرید و چقدر سود خالص می‌کنید.
           </div>
-        </div>
-
-        <div className="p-4">
-          <div className="text-xs text-slate-400">تله‌های آپشن مانعی شناسایی‌شده</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono tabular-nums text-amber-400">
-              {trapCount}
-            </span>
-            <span className="text-xs text-amber-300/80 font-mono tabular-nums">
-              سقف تخصیص ۵٪
-            </span>
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            محافظت از سرمایه در برابر شرط‌های ۰.۱ سنتی «Hit $X»
-          </div>
-        </div>
-
-        <div className="p-4">
-          <label
-            htmlFor="scanner-bankroll-input"
-            className="block text-xs text-slate-400"
-          >
-            سرمایه پایه هر موقعیت (Bankroll $)
-          </label>
-          <div className="mt-1.5 flex items-center gap-2">
-            <span className="text-sm font-mono text-slate-400">$</span>
-            <input
-              id="scanner-bankroll-input"
-              type="number"
-              min={50}
-              max={1000000}
-              step={50}
-              value={bankroll}
-              onChange={(e) => onBankrollChange(Math.max(10, Number(e.target.value) || 1000))}
-              className="w-full bg-slate-900 border border-slate-700 px-2.5 py-1 text-sm font-mono tabular-nums text-slate-100 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            محاسبه زنده دلاری و تعداد سهام (Shares) برای هر پایه
+          <div className="rounded-xl bg-slate-950/75 border border-slate-800 p-3.5 text-xs text-slate-300 leading-relaxed">
+            <strong className="text-white block text-sm mb-1">۳. ثبت در Polymarket</strong>
+            روی دکمه آبی <span className="text-sky-400 font-bold">«ورود به بازار در Polymarket»</span> بالای هر کارت بزنید و همان گزینه را بخرید.
           </div>
         </div>
       </div>
 
-      {/* Filter & Search Control Bar */}
-      <div className="border border-slate-800 bg-[#0F1623] p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          <div className="relative flex-1">
+      {/* Top Summary & Bankroll Calculator Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-slate-900/95 p-5 shadow-md">
+          <label htmlFor="scanner-bankroll-input" className="block text-xs font-semibold text-emerald-300">
+            💰 سرمایه شما برای هر بازار (دلار $)
+          </label>
+          <div className="mt-2 flex items-center gap-2.5">
+            <div className="relative flex-1">
+              <DollarSign className="w-4 h-4 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="scanner-bankroll-input"
+                type="number"
+                min={10}
+                max={1000000}
+                step={50}
+                value={bankroll}
+                onChange={(e) => onBankrollChange(Math.max(10, Number(e.target.value) || 1000))}
+                dir="ltr"
+                className="w-full rounded-xl bg-slate-950 border border-emerald-500/50 pl-8 pr-3 py-2 text-lg font-extrabold font-mono tabular-nums text-emerald-400 focus:border-emerald-400 focus:outline-none"
+              />
+            </div>
+            <span className="text-xs font-bold text-emerald-300 shrink-0">دلار</span>
+          </div>
+          <div className="mt-2 text-[11px] text-slate-400">
+            با تغییر این عدد، تمام مبالغ خرید و سودهای خالص پایین صفحه خودکار حساب می‌شوند
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 flex flex-col justify-center">
+          <div className="text-xs text-slate-400 font-medium">📊 تعداد موقعیت‌های آماده معامله</div>
+          <div className="mt-1.5 text-3xl font-extrabold font-mono tabular-nums text-white">
+            {filteredOpportunities.length}
+          </div>
+          <div className="mt-1.5 text-xs text-slate-400">
+            بازارهای بررسی‌شده و فیلترشده (بدون بازارهای ورزشی و کم‌عمق)
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 flex flex-col justify-center">
+          <div className="text-xs text-slate-400 font-medium">✅ موقعیت‌های با شانس برد بالای ۸۰٪</div>
+          <div className="mt-1.5 text-3xl font-extrabold font-mono tabular-nums text-emerald-400">
+            {highProbCount}
+          </div>
+          <div className="mt-1.5 text-xs text-slate-400">
+            گزینه‌هایی که احتمال برد بسیار بالایی در بازار دارند
+          </div>
+        </div>
+      </div>
+
+      {/* Category Pills & Search Bar */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedSection('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              selectedSection === 'all'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'bg-slate-950 text-slate-300 border border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            همه بازارها
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedSection('economy')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              selectedSection === 'economy'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'bg-slate-950 text-slate-300 border border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            📊 اقتصاد و تورم
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedSection('markets')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              selectedSection === 'markets'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'bg-slate-950 text-slate-300 border border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            📈 سهام و رمزارز
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedSection('politics')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              selectedSection === 'politics'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'bg-slate-950 text-slate-300 border border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            🗳️ سیاست و انتخابات
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 flex-1 lg:justify-end">
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              aria-label="جستجوی عنوان بازار یا خروجی"
-              placeholder="جستجوی بازار، تیکر سهام (PANW, AVGO, SPY)، نرخ بهره یا کاندیدا..."
+              placeholder="جستجوی نام بازار (مثلاً CPI، Bitcoin...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900/90 border border-slate-700 pr-9 pl-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-xl bg-slate-950 border border-slate-800 pr-9 pl-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-              <label htmlFor="scanner-sort-select" className="text-xs text-slate-400">
-                مرتب‌سازی:
-              </label>
-              <select
-                id="scanner-sort-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'confidence' | 'edge' | 'ev' | 'days')}
-                className="bg-slate-900 border border-slate-700 px-2.5 py-1.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none"
-              >
-                <option value="confidence">امتیاز اطمینان کالیبره (Confidence)</option>
-                <option value="edge">لبه آماری مدل (Quant Edge)</option>
-                <option value="ev">امید ریاضی سود خالص (Expected Value)</option>
-                <option value="days">نزدیک‌ترین زمان تسویه</option>
-              </select>
-            </div>
-
-            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none border border-slate-700 bg-slate-900 px-3 py-1.5">
-              <input
-                type="checkbox"
-                checked={hideBarrierTraps}
-                onChange={(e) => setHideBarrierTraps(e.target.checked)}
-                className="accent-emerald-500"
-              />
-              <span>حذف بازارهای تله مانعی (Hit $X)</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Category Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 border-t border-slate-800/80">
-          <button
-            type="button"
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
-              selectedCategory === 'all'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-            }`}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'prob' | 'days' | 'roi')}
+            className="rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 focus:border-emerald-500 focus:outline-none"
           >
-            همه دسته‌ها ({opportunities.length})
-          </button>
-          {categories.map(([cat, count]) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
-                selectedCategory === cat
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              {CATEGORY_LABELS_FA[cat] || cat} ({count})
-            </button>
-          ))}
+            <option value="prob">مرتب‌سازی: بیشترین شانس برد</option>
+            <option value="days">مرتب‌سازی: نزدیک‌ترین زمان نتیجه</option>
+            <option value="roi">مرتب‌سازی: بیشترین درصد سود</option>
+          </select>
         </div>
       </div>
 
-      {/* Opportunities List */}
-      {filteredOpportunities.length === 0 ? (
-        <div className="border border-slate-800 bg-[#0F1623] p-12 text-center">
-          <p className="text-sm text-slate-400">
-            هیچ بازاری با فیلترهای انتخابی مطابقت ندارد.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCategory('all');
-              setSearchQuery('');
-              setHideBarrierTraps(false);
-            }}
-            className="mt-4 px-4 py-2 bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-500"
-          >
-            پاک کردن فیلترها
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredOpportunities.slice(0, 30).map((opp) => {
-            const p = opp.planV2;
-            const primaryDollar = ((bankroll * p.primarySizePct) / 100).toFixed(0);
-            const wasBinaryBugRepaired =
-              opp.legacyPrimaryOutcome.trim().toLowerCase() === opp.title.trim().toLowerCase();
+      {/* Market Cards List */}
+      <div className="space-y-5">
+        {filteredOpportunities.map((opp) => {
+          const plan = opp.planV2;
+          const primaryPrice = Math.max(0.01, plan.primaryMarketPrice || 0.5);
+          const winProbPct = Number((primaryPrice * 100).toFixed(1));
 
-            return (
-              <article
-                key={opp.id}
-                className="border border-slate-800 bg-[#0F1623] hover:border-slate-700 transition-colors"
-              >
-                {/* Card Header */}
-                <div className="p-4 border-b border-slate-800/80 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                      <span className="font-semibold text-emerald-400">
-                        {opp.categoryLabelFa}
-                      </span>
-                      <span>·</span>
-                      <span className="font-mono tabular-nums">
-                        تسویه: {opp.daysToResolve.toFixed(1)} روز
-                      </span>
-                      <span>·</span>
-                      <span>منابع: {opp.sourceNames.join('، ')}</span>
-                      {opp.categoryWasFixed && (
-                        <>
-                          <span>·</span>
-                          <span className="text-amber-400 font-medium">
-                            اصلاح دسته‌بندی از BoE (باگ ۳)
-                          </span>
-                        </>
-                      )}
-                      {wasBinaryBugRepaired && (
-                        <>
-                          <span>·</span>
-                          <span className="text-emerald-400 font-medium">
-                            اصلاح خروجی باینری به «{p.primaryOutcome}» (باگ ۱)
-                          </span>
-                        </>
-                      )}
-                    </div>
+          // Filter backup legs to only realistic contenders (price >= 4c)
+          const viableBackups = plan.allocations
+            .filter((a) => a.role !== 'primary' && a.marketPrice >= 0.04 && a.sizePct >= 1.5)
+            .slice(0, 2);
 
-                    <h3 className="text-base font-bold text-slate-100 leading-snug" dir="ltr">
-                      {opp.title}
-                    </h3>
-                  </div>
+          // If primary is >= 88c or no viable backups exist, treat as 100% solo primary for clarity
+          const isSoloPrimary = primaryPrice >= 0.88 || viableBackups.length === 0;
+          const displayPrimaryPct = isSoloPrimary ? 100 : plan.primarySizePct;
+          const displayPrimaryDollar = Math.round(bankroll * (displayPrimaryPct / 100));
+          const displayPrimaryPayout = Math.round(displayPrimaryDollar / primaryPrice);
+          const displayPrimaryNetProfit = displayPrimaryPayout - bankroll;
+          const displayPrimaryRoiPct = Number(((displayPrimaryNetProfit / bankroll) * 100).toFixed(1));
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => triggerAiAnalysis(opp)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-medium transition-colors"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>تحلیل هوش مصنوعی</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => onLoadInSimulator(opp)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition-colors"
-                    >
-                      <Calculator className="w-3.5 h-3.5" />
-                      <span>شبیه‌ساز کِلی</span>
-                    </button>
-
-                    <a
-                      href={opp.marketUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={`مشاهده ${opp.title} در Polymarket`}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs transition-colors"
-                    >
-                      <span className="font-mono">Polymarket</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
+          return (
+            <article
+              key={opp.id}
+              className="rounded-2xl border border-slate-800/90 bg-slate-900/90 p-5 sm:p-6 shadow-xl hover:border-slate-700 transition-all"
+            >
+              {/* Card Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    {CATEGORY_LABELS_FA[opp.category] || opp.categoryLabelFa}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{formatTimeLeftFa(opp.daysToResolve)}</span>
+                  </span>
                 </div>
 
-                {/* Quantitative Metrics Strip */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 bg-slate-900/50 border-b border-slate-800/80 divide-y sm:divide-y-0 sm:divide-x sm:divide-x-reverse divide-slate-800 text-xs">
-                  <div className="p-3">
-                    <div className="text-slate-400">گزینه اصلی (Primary)</div>
-                    <div className="mt-1 font-bold text-emerald-400 font-mono truncate" dir="ltr">
-                      {p.primaryOutcome}
-                    </div>
-                  </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => triggerAiAnalysis(opp)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>تحلیل هوشمند</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onLoadInSimulator(opp)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors"
+                  >
+                    <Calculator className="w-3.5 h-3.5 text-sky-400" />
+                    <span>ماشین‌حساب دستی</span>
+                  </button>
+                  <a
+                    href={opp.marketUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/25 transition-colors"
+                  >
+                    <span>ورود به بازار در Polymarket</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
 
-                  <div className="p-3">
-                    <div className="text-slate-400">سایز بهینه (v2 vs قدیم)</div>
-                    <div className="mt-1 font-mono tabular-nums flex items-baseline gap-1.5">
-                      <span className="font-bold text-slate-100">{p.primarySizePct}%</span>
-                      <span className="text-[11px] text-slate-400">(${primaryDollar})</span>
-                      {Math.abs(p.primarySizePct - opp.legacyPrimarySizePct) > 1 && (
-                        <span className="text-[11px] text-amber-400 line-through">
-                          {opp.legacyPrimarySizePct}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              {/* Market Title */}
+              <h3 className="text-lg sm:text-xl font-extrabold text-white text-left mb-4" dir="ltr">
+                {opp.title}
+              </h3>
 
-                  <div className="p-3">
-                    <div className="text-slate-400">قیمت بازار / احتمال مدل</div>
-                    <div className="mt-1 font-mono tabular-nums text-slate-200">
-                      {(p.primaryMarketPrice * 100).toFixed(1)}¢{' '}
-                      <span className="text-slate-500">→</span>{' '}
-                      <span className="text-emerald-400 font-semibold">
-                        {(p.primaryModelProb * 100).toFixed(1)}%
+              {/* Visual Win Probability Bar */}
+              <div className="rounded-xl bg-slate-950/80 border border-slate-800/80 p-3.5 mb-5">
+                <div className="flex items-center justify-between text-xs text-slate-300 mb-2">
+                  <span>شانس برد گزینه پیشنهادی (بر اساس قیمت فعلی بازار)</span>
+                  <strong className="font-mono text-sm font-extrabold text-emerald-400" dir="ltr">
+                    {winProbPct}%
+                  </strong>
+                </div>
+                <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
+                    style={{ width: `${Math.min(100, Math.max(5, winProbPct))}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Two-Box Clear Action Plan */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Box 1: Primary Recommendation */}
+                <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/12 to-slate-950/90 p-4 sm:p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
+                      <span className="px-3 py-1 rounded-full bg-emerald-500 text-slate-950 text-xs font-extrabold">
+                        گام ۱ · پیشنهاد اصلی خرید
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        قیمت هر سهم:{' '}
+                        <strong className="font-mono text-slate-200" dir="ltr">
+                          {(primaryPrice * 100).toFixed(1)}¢
+                        </strong>
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-950/90 border border-emerald-500/30 p-3.5 flex items-center justify-between gap-3 mb-4">
+                      <span className="text-xs sm:text-sm font-bold text-slate-300">
+                        این گزینه را بخرید:
+                      </span>
+                      <span
+                        className="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 font-mono text-base sm:text-lg font-extrabold"
+                        dir="ltr"
+                      >
+                        {plan.primaryOutcome}
                       </span>
                     </div>
                   </div>
 
-                  <div className="p-3">
-                    <div className="text-slate-400">اجماع بیزی (کالیبره)</div>
-                    <div className="mt-1 font-mono tabular-nums flex items-baseline gap-1.5">
-                      <span className="font-semibold text-slate-100">
-                        {p.calibratedConsensusScore}%
-                      </span>
-                      {opp.legacyConsensusScore === 100 && opp.numSources <= 1 && (
-                        <span className="text-[11px] text-amber-400" title="در کد قدیم به دلیل باگ ۱۰، تک‌منبع ۱۰۰٪ می‌گرفت">
-                          (قدیم: 100%)
-                        </span>
-                      )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-3">
+                      <div className="text-[11px] text-slate-400">مبلغی که وارد می‌کنید</div>
+                      <div className="mt-1 text-xl font-extrabold font-mono text-white" dir="ltr">
+                        ${displayPrimaryDollar.toLocaleString()}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-slate-400">
+                        ({displayPrimaryPct.toFixed(0)}٪ از کل سرمایه)
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="p-3">
-                    <div className="text-slate-400">سود خالص اگر Primary ببرد</div>
-                    <div
-                      className={`mt-1 font-mono tabular-nums font-bold ${
-                        p.netProfitIfPrimaryWinsPct >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      {p.netProfitIfPrimaryWinsPct >= 0 ? '+' : ''}
-                      {p.netProfitIfPrimaryWinsPct.toFixed(2)}%
-                    </div>
-                  </div>
-
-                  <div className="p-3">
-                    <div className="text-slate-400">حد ضرر / حد سود پیشنهادی</div>
-                    <div className="mt-1 font-mono tabular-nums text-slate-300">
-                      SL: {(p.stopLossPrice * 100).toFixed(1)}¢ · TP:{' '}
-                      {(p.takeProfitPrice * 100).toFixed(1)}¢
+                    <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3">
+                      <div className="text-[11px] text-emerald-300">سود خالص شما در صورت برد</div>
+                      <div className="mt-1 text-xl font-extrabold font-mono text-emerald-400" dir="ltr">
+                        {displayPrimaryNetProfit >= 0 ? '+' : '-'}$
+                        {Math.abs(displayPrimaryNetProfit).toLocaleString()}
+                      </div>
+                      <div className="mt-0.5 text-[11px] font-mono text-emerald-300" dir="ltr">
+                        ({displayPrimaryRoiPct >= 0 ? '+' : ''}
+                        {displayPrimaryRoiPct}% سود خالص)
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Warning Banner if Barrier Trap */}
-                {p.warning && (
-                  <div className="px-4 py-2.5 bg-amber-950/30 border-b border-amber-800/40 flex items-center gap-2 text-xs text-amber-300">
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
-                    <span>{p.warning}</span>
+                {/* Box 2: Insurance / Backup Plan */}
+                {isSoloPrimary ? (
+                  <div className="rounded-2xl border border-dashed border-slate-700/80 bg-slate-950/60 p-5 flex flex-col justify-center">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                      <span className="text-sm font-extrabold text-emerald-400">
+                        نیاز به خرید گزینه کمکی (بیمه) ندارد
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                      از آنجا که گزینه اصلی از نظر آماری شانس بالایی دارد، کل بودجه روی همان{' '}
+                      <strong className="text-white" dir="ltr">
+                        {plan.primaryOutcome}
+                      </strong>{' '}
+                      قرار می‌گیرد تا سود خالص شما کم نشود.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-sky-500/35 bg-gradient-to-br from-sky-500/10 to-slate-950/90 p-4 sm:p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className="px-3 py-1 rounded-full bg-sky-400 text-slate-950 text-xs font-extrabold">
+                          گام ۲ · بیمه ریسک (برای نسوختن کل پول)
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+                        اگر گزینه اول نیاید و یکی از گزینه‌های محتمل زیر برنده شود، این خرید پوششی باعث می‌شود اصل پول شما حفظ شود:
+                      </p>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {viableBackups.map((b, idx) => {
+                        const bDollar = Math.round(bankroll * (b.sizePct / 100));
+                        const bPayout = b.marketPrice > 0 ? Math.round(bDollar / b.marketPrice) : 0;
+                        return (
+                          <div
+                            key={b.outcome}
+                            className="rounded-xl bg-slate-950/85 border border-sky-500/25 p-3 text-xs"
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-slate-200 font-semibold">
+                                گزینه جایگزین {idx + 1}:{' '}
+                                <strong className="font-mono text-white" dir="ltr">
+                                  {b.outcome}
+                                </strong>
+                              </span>
+                              <span className="text-slate-400 font-mono" dir="ltr">
+                                قیمت: {(b.marketPrice * 100).toFixed(1)}¢
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-slate-400">
+                              <span>
+                                مبلغ خرید:{' '}
+                                <strong className="text-sky-400 font-mono text-sm" dir="ltr">
+                                  ${bDollar.toLocaleString()}
+                                </strong>{' '}
+                                ({b.sizePct.toFixed(0)}٪ بودجه)
+                              </span>
+                              <span>
+                                دریافتی در صورت برد:{' '}
+                                <strong className="text-slate-200 font-mono" dir="ltr">
+                                  ${bPayout.toLocaleString()}
+                                </strong>
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
+              </div>
 
-                {/* Multi-Leg Allocation & Scenario Payoff Table */}
-                <div className="p-4 overflow-x-auto">
-                  <table className="w-full text-xs text-right border-collapse">
+              {/* Optional Collapsible Details Drawer */}
+              <details className="mt-4 pt-3 border-t border-slate-800/80 group">
+                <summary className="cursor-pointer list-none flex items-center justify-between text-xs font-semibold text-slate-400 hover:text-slate-200">
+                  <span>📋 مشاهده جدول دقیق تعداد سهام (Shares) و جزئیات محاسبه</span>
+                  <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-3 overflow-x-auto rounded-xl border border-slate-800">
+                  <table className="w-full text-right border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-slate-800 text-slate-400">
-                        <th className="py-2 px-3 font-medium">نقش پایه (Role)</th>
-                        <th className="py-2 px-3 font-medium text-left" dir="ltr">
-                          Outcome
-                        </th>
-                        <th className="py-2 px-3 font-medium">سهم از بودجه</th>
-                        <th className="py-2 px-3 font-medium">مبلغ دلاری ($)</th>
-                        <th className="py-2 px-3 font-medium">قیمت فعلی</th>
-                        <th className="py-2 px-3 font-medium">تعداد سهام (Shares)</th>
-                        <th className="py-2 px-3 font-medium">دریافتی ناخالص</th>
-                        <th className="py-2 px-3 font-medium">
-                          سود/زیان خالص کل سبد در صورت برد این گزینه
-                        </th>
+                      <tr className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                        <th className="py-2.5 px-3">نوع انتخاب</th>
+                        <th className="py-2.5 px-3">گزینه</th>
+                        <th className="py-2.5 px-3">قیمت هر سهم</th>
+                        <th className="py-2.5 px-3">سهم از بودجه</th>
+                        <th className="py-2.5 px-3">مبلغ دلاری</th>
+                        <th className="py-2.5 px-3">تعداد سهام دریافتی</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-mono tabular-nums">
-                      {p.allocations.map((leg, idx) => {
-                        const dollarVal = ((bankroll * leg.sizePct) / 100).toFixed(2);
-                        const sharesVal = (Number(dollarVal) / leg.marketPrice).toFixed(1);
+                    <tbody className="divide-y divide-slate-800/60 bg-slate-950/50">
+                      {(isSoloPrimary
+                        ? [
+                            {
+                              outcome: plan.primaryOutcome,
+                              role: 'primary' as const,
+                              marketPrice: primaryPrice,
+                              sizePct: 100,
+                            },
+                          ]
+                        : [plan.allocations[0], ...viableBackups].filter(Boolean)
+                      ).map((leg) => {
+                        const lDollar = Math.round(bankroll * (leg.sizePct / 100));
+                        const lShares = leg.marketPrice > 0 ? lDollar / leg.marketPrice : 0;
                         return (
-                          <tr key={idx} className="hover:bg-slate-800/30">
-                            <td className="py-2 px-3 font-sans">
-                              {leg.role === 'primary' ? (
-                                <span className="text-emerald-400 font-semibold">
-                                  گزینه اصلی (Primary)
-                                </span>
-                              ) : leg.role === 'secondary' ? (
-                                <span className="text-sky-400">گزینه دوم (Secondary)</span>
-                              ) : (
-                                <span className="text-amber-400">پوشش هج (Hedge)</span>
-                              )}
+                          <tr key={leg.outcome}>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
+                                  leg.role === 'primary'
+                                    ? 'bg-emerald-500/15 text-emerald-300'
+                                    : 'bg-sky-500/15 text-sky-300'
+                                }`}
+                              >
+                                {leg.role === 'primary' ? 'گزینه اصلی خرید' : 'بیمه و پوشش ریسک'}
+                              </span>
                             </td>
-                            <td
-                              className="py-2 px-3 text-left font-semibold text-slate-200"
-                              dir="ltr"
-                            >
+                            <td className="py-2.5 px-3 font-mono font-bold text-white" dir="ltr">
                               {leg.outcome}
                             </td>
-                            <td className="py-2 px-3 text-slate-100">{leg.sizePct.toFixed(2)}%</td>
-                            <td className="py-2 px-3 text-slate-300">${dollarVal}</td>
-                            <td className="py-2 px-3 text-slate-300">
-                              {(leg.marketPrice * 100).toFixed(2)}¢
+                            <td className="py-2.5 px-3 font-mono text-slate-300" dir="ltr">
+                              {(leg.marketPrice * 100).toFixed(1)}¢
                             </td>
-                            <td className="py-2 px-3 text-slate-300">{sharesVal}</td>
-                            <td className="py-2 px-3 text-slate-200">
-                              {leg.grossPayoutPct.toFixed(1)}%
+                            <td className="py-2.5 px-3 font-mono text-slate-300" dir="ltr">
+                              {leg.sizePct.toFixed(1)}%
                             </td>
-                            <td
-                              className={`py-2 px-3 font-bold ${
-                                leg.netRoiIfWinsPct >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                              }`}
-                            >
-                              {leg.netRoiIfWinsPct >= 0 ? '+' : ''}
-                              {leg.netRoiIfWinsPct.toFixed(2)}%
+                            <td className="py-2.5 px-3 font-mono font-bold text-emerald-400" dir="ltr">
+                              ${lDollar.toLocaleString()}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-slate-300" dir="ltr">
+                              {lShares.toFixed(1)} سهم
                             </td>
                           </tr>
                         );
@@ -538,103 +581,77 @@ export const ScannerTerminalView: React.FC<Props> = ({
                     </tbody>
                   </table>
                 </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+              </details>
+            </article>
+          );
+        })}
+      </div>
 
-      {/* AI Deep Research Modal */}
+      {/* AI Analysis Modal */}
       {aiModalOpp && (
         <div
-          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="ai-modal-title"
         >
-          <div className="bg-[#0F1623] border border-slate-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
-              <div>
-                <div className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>گزارش تحلیل کوانت و بنیادی هوش مصنوعی (رفع باگ شماره ۸)</span>
-                </div>
-                <h2
-                  id="ai-modal-title"
-                  className="mt-1 text-base font-bold text-slate-100"
-                  dir="ltr"
-                >
-                  {aiModalOpp.title}
-                </h2>
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-sm font-bold text-slate-100">تحلیل هوشمند بازار به زبان ساده</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setAiModalOpp(null)}
-                aria-label="بستن پنجره تحلیل"
-                className="p-1.5 text-slate-400 hover:text-slate-100 border border-slate-800"
+                className="text-slate-400 hover:text-slate-200 p-1"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {aiLoading ? (
-              <div className="py-12 text-center space-y-3">
-                <div className="inline-block w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                <p className="text-xs text-slate-400">
-                  در حال تحلیل تمام گزینه‌های کاندیدا، قیمت‌های CLOB و ساختار هجینگ...
-                </p>
-              </div>
-            ) : aiResult ? (
-              <div className="space-y-4 text-xs leading-relaxed">
-                <div className="p-3.5 bg-emerald-950/20 border border-emerald-800/40 space-y-1">
-                  <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>جمع‌بندی اجرایی (Executive Verdict)</span>
-                  </div>
-                  <p className="text-slate-200">{aiResult.analysis.verdictFa}</p>
-                </div>
-
-                <div className="p-3.5 bg-slate-900/70 border border-slate-800 space-y-2">
-                  <div className="font-bold text-slate-200 flex items-center gap-1.5">
-                    <TrendingUp className="w-4 h-4 text-sky-400" />
-                    <span>محرک‌های بنیادی و آماری</span>
-                  </div>
-                  <ul className="list-disc list-inside space-y-1.5 text-slate-300">
-                    {aiResult.analysis.fundamentalDriversFa.map((d, i) => (
-                      <li key={i}>{d}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="p-3.5 bg-slate-900/70 border border-slate-800 space-y-1.5">
-                  <div className="font-bold text-slate-200 flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-amber-400" />
-                    <span>ارزیابی مهندسی هجینگ و تخصیص سرمایه</span>
-                  </div>
-                  <p className="text-slate-300">{aiResult.analysis.hedgeCritiqueFa}</p>
-                </div>
-
-                <div className="p-3.5 bg-slate-900/70 border border-slate-800 space-y-2">
-                  <div className="font-bold text-slate-200 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-rose-400" />
-                    <span>ریسک‌های دنباله (Tail Risks & Resolution Rules)</span>
-                  </div>
-                  <ul className="list-disc list-inside space-y-1 text-slate-300">
-                    {aiResult.analysis.tailRisksFa.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="p-3.5 bg-sky-950/20 border border-sky-800/40 space-y-1">
-                  <div className="font-bold text-sky-400 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>توصیه عملیاتی نهایی</span>
-                  </div>
-                  <p className="text-slate-200">{aiResult.analysis.recommendedActionFa}</p>
+            <div className="p-5 space-y-4">
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="text-sm font-bold text-slate-100 text-left" dir="ltr">
+                  {aiModalOpp.title}
                 </div>
               </div>
-            ) : null}
+
+              {aiLoading ? (
+                <div className="py-12 text-center space-y-2">
+                  <div className="inline-block w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-slate-400">در حال آماده‌سازی تحلیل بازار...</p>
+                </div>
+              ) : aiResult ? (
+                <div className="space-y-4 text-xs leading-relaxed">
+                  <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-700/40">
+                    <div className="font-bold text-emerald-300 mb-1 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>جمع‌بندی نهایی:</span>
+                    </div>
+                    <p className="text-slate-200">{aiResult.analysis.verdictFa}</p>
+                  </div>
+
+                  {aiResult.analysis.fundamentalDriversFa?.length > 0 && (
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                      <div className="font-bold text-slate-200 mb-2 flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4 text-sky-400" />
+                        <span>نکات کلیدی این بازار:</span>
+                      </div>
+                      <ul className="list-disc list-inside space-y-1.5 text-slate-300">
+                        {aiResult.analysis.fundamentalDriversFa.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="p-4 rounded-xl bg-sky-950/30 border border-sky-700/40">
+                    <div className="font-bold text-sky-300 mb-1">پیشنهاد عملیاتی:</div>
+                    <p className="text-slate-200">{aiResult.analysis.recommendedActionFa}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       )}
