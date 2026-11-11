@@ -81,25 +81,35 @@ jobs:
           echo "All 3 attempts failed."
           exit 1
 
-      - name: Commit & push updated dashboard + unique scan snapshot to GitHub
+      - name: Commit & push updated dashboard to GitHub (conflict-free)
         run: |
           git config user.name "polybet-bot"
           git config user.email "polybet-bot@users.noreply.github.com"
+          mkdir -p /tmp/polybet_sync/docs
+          cp -f docs/index.html /tmp/polybet_sync/docs/index.html 2>/dev/null || true
+          cp -f docs/results.html /tmp/polybet_sync/docs/results.html 2>/dev/null || true
+          cp -f predictions_log.csv /tmp/polybet_sync/predictions_log.csv 2>/dev/null || true
+          git fetch origin
+          git reset --hard "origin/${GITHUB_REF_NAME:-main}" || true
+          rm -rf docs/scans
+          mkdir -p docs
+          cp -f /tmp/polybet_sync/docs/index.html docs/index.html 2>/dev/null || true
+          cp -f /tmp/polybet_sync/docs/results.html docs/results.html 2>/dev/null || true
+          cp -f /tmp/polybet_sync/predictions_log.csv predictions_log.csv 2>/dev/null || true
           git add docs/ predictions_log.csv
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "Daily scan: $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git pull --rebase --autostash origin HEAD
-            git push
+            git push origin "HEAD:${GITHUB_REF_NAME:-main}"
           fi
 
-      - name: Send Telegram digest with unique live GitHub link
+      - name: Send Telegram digest with single GitHub Pages link
         if: always()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           if [ -f /tmp/polybet_telegram_msg.txt ]; then
-            python main.py --send-prepared /tmp/polybet_telegram_msg.txt
+            python main.py --send-prepared /tmp/polybet_telegram_msg.txt || true
           fi

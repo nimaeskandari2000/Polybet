@@ -3,980 +3,1553 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PolyBet Quant Terminal v2.0 — سیگنال‌های زنده و سایزینگ کِلی</title>
+<title>داشبورد سیگنال‌های هوشمند Polymarket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; }
 body {
-  margin: 0; padding: 0;
-  background: #080C14; color: #F1F5F9;
-  font-family: "Vazirmatn", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  line-height: 1.55;
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(circle at top, #111C35 0%, #090E1A 60%, #060911 100%);
+  color: #F8FAFC;
+  font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.65;
+  min-height: 100vh;
 }
 a { color: inherit; text-decoration: none; }
-.topbar {
-  position: sticky; top: 0; z-index: 40;
-  background: rgba(15, 22, 35, 0.96); backdrop-filter: blur(8px);
-  border-bottom: 1px solid #1E293B;
+.ltr-num { direction: ltr; display: inline-block; font-family: 'Vazirmatn', monospace; font-feature-settings: "tnum"; }
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(9, 14, 26, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
 }
-.topbar-inner {
-  max-width: 1400px; margin: 0 auto; padding: 0.85rem 1.25rem;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;
+.navbar-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
-.brand { display: flex; align-items: center; gap: 0.75rem; }
-.brand-badge {
-  background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #34D399; font-family: monospace; font-weight: 700; font-size: 0.85rem;
-  padding: 0.35rem 0.65rem;
+.brand-wrap { display: flex; align-items: center; gap: 0.85rem; }
+.brand-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.28);
 }
-.brand-title { font-weight: 700; font-size: 0.95rem; color: #F8FAFC; }
-.brand-sub { font-size: 0.75rem; color: #94A3B8; }
-.nav-links { display: flex; align-items: center; gap: 0.5rem; }
-.nav-tab {
-  padding: 0.45rem 0.9rem; font-size: 0.8rem; font-weight: 600;
-  border: 1px solid #1E293B; background: #0B111E; color: #CBD5E1; cursor: pointer;
+.brand-title { font-size: 1.15rem; font-weight: 800; color: #FFFFFF; }
+.brand-sub { font-size: 0.78rem; color: #94A3B8; margin-top: 2px; }
+
+.nav-pills { display: flex; align-items: center; gap: 0.6rem; }
+.nav-link {
+  padding: 0.55rem 1.1rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.75);
+  color: #CBD5E1;
+  transition: all 0.2s ease;
 }
-.nav-tab.active { background: #10B981; border-color: #10B981; color: #04130D; font-weight: 700; }
-.nav-tab:hover:not(.active) { border-color: #334155; color: #FFFFFF; }
-.container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
-.kpi-strip {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  border: 1px solid #1E293B; background: #0F1623; margin-bottom: 1.25rem;
+.nav-link.active {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  border-color: transparent;
+  color: #04130D;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
-.kpi-box { padding: 1rem 1.25rem; border-left: 1px solid #1E293B; }
-.kpi-box:last-child { border-left: none; }
-.kpi-label { font-size: 0.75rem; color: #94A3B8; margin-bottom: 0.35rem; }
-.kpi-val { font-family: monospace; font-size: 1.55rem; font-weight: 700; color: #F8FAFC; }
-.kpi-sub { font-size: 0.72rem; color: #64748B; margin-top: 0.25rem; }
+.nav-link:hover:not(.active) { border-color: #38BDF8; color: #FFFFFF; }
+
+.main-wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+
+.guide-banner {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  border-radius: 20px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.guide-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #34D399;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.guide-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+.guide-step {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  font-size: 0.83rem;
+  color: #E2E8F0;
+}
+.guide-step strong { color: #FFFFFF; display: block; margin-bottom: 0.2rem; font-size: 0.88rem; }
+
+.dashboard-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.stat-card {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  padding: 1.1rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.stat-card-highlight {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+.stat-label { font-size: 0.8rem; color: #94A3B8; font-weight: 500; }
+.stat-val { font-size: 1.7rem; font-weight: 800; color: #FFFFFF; margin-top: 0.2rem; }
+.stat-hint { font-size: 0.75rem; color: #64748B; margin-top: 0.2rem; }
+
+.bankroll-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
 .bankroll-input {
-  background: #080C14; border: 1px solid #334155; color: #34D399;
-  font-family: monospace; font-size: 1.15rem; font-weight: 700;
-  padding: 0.25rem 0.5rem; width: 130px; text-align: left; direction: ltr;
+  background: #090E1A;
+  border: 2px solid #10B981;
+  border-radius: 12px;
+  color: #34D399;
+  font-size: 1.3rem;
+  font-weight: 800;
+  padding: 0.35rem 0.75rem;
+  width: 145px;
+  text-align: left;
+  direction: ltr;
+  font-family: inherit;
 }
-.controls-panel {
-  border: 1px solid #1E293B; background: #0F1623; padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+.bankroll-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); }
+
+.filter-bar {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 18px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
-.controls-row {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;
+.cat-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.cat-tab {
+  background: rgba(9, 14, 26, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #CBD5E1;
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
 }
-.search-input {
-  flex: 1; min-width: 240px; background: #080C14; border: 1px solid #334155;
-  color: #F8FAFC; padding: 0.5rem 0.75rem; font-size: 0.82rem; font-family: inherit;
+.cat-tab.active {
+  background: #10B981;
+  border-color: #10B981;
+  color: #04130D;
 }
-.select-input {
-  background: #080C14; border: 1px solid #334155; color: #F8FAFC;
-  padding: 0.45rem 0.7rem; font-size: 0.8rem; font-family: inherit;
+.filter-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem; flex: 1; justify-content: flex-end; }
+.search-box {
+  background: #090E1A;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  color: #FFFFFF;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.84rem;
+  min-width: 230px;
+  font-family: inherit;
 }
-.filter-pills {
-  display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.85rem; padding-top: 0.85rem;
-  border-top: 1px solid #1E293B;
+.sort-select {
+  background: #090E1A;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  color: #FFFFFF;
+  padding: 0.52rem 0.8rem;
+  font-size: 0.83rem;
+  font-family: inherit;
 }
-.filter-btn {
-  background: #080C14; border: 1px solid #1E293B; color: #94A3B8;
-  padding: 0.35rem 0.75rem; font-size: 0.76rem; cursor: pointer; font-family: inherit;
-}
-.filter-btn.active { background: #10B981; border-color: #10B981; color: #04130D; font-weight: 700; }
-.market-card {
-  border: 1px solid #1E293B; background: #0F1623; margin-bottom: 1rem;
-  transition: border-color 0.15s ease;
-}
-.market-card:hover { border-color: #334155; }
-.card-header {
-  padding: 1rem 1.25rem; border-bottom: 1px solid #1E293B;
-  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem;
-}
-.card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; font-size: 0.75rem; color: #94A3B8; margin-bottom: 0.35rem; }
-.cat-tag { color: #34D399; font-weight: 600; }
-.card-title { margin: 0; font-size: 1rem; font-weight: 700; color: #F8FAFC; text-align: left; }
-.card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
-.btn-action {
-  background: #1E293B; border: 1px solid #334155; color: #E2E8F0;
-  padding: 0.38rem 0.7rem; font-size: 0.75rem; cursor: pointer; font-family: inherit;
-}
-.btn-action:hover { background: #334155; color: #FFFFFF; }
-.btn-ai { background: rgba(16, 185, 129, 0.14); border-color: rgba(16, 185, 129, 0.4); color: #34D399; }
-.metrics-strip {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-  background: rgba(8, 12, 20, 0.65); border-bottom: 1px solid #1E293B;
-}
-.metric-cell { padding: 0.65rem 1rem; border-left: 1px solid #1E293B; }
-.metric-cell:last-child { border-left: none; }
-.metric-label { font-size: 0.7rem; color: #64748B; margin-bottom: 0.2rem; }
-.metric-val { font-family: monospace; font-size: 0.88rem; font-weight: 700; color: #F1F5F9; }
-.warning-banner {
-  padding: 0.6rem 1.25rem; background: rgba(245, 158, 11, 0.12);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.3); color: #FBBF24; font-size: 0.78rem;
-}
-.ai-result {
-  padding: 0.85rem 1.25rem; background: #0B1320; border-bottom: 1px solid #1E293B;
-  font-size: 0.8rem; color: #E2E8F0;
-}
-.ai-result:empty { display: none; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; min-width: 720px; }
-th {
-  text-align: right; padding: 0.6rem 0.9rem; background: #0B111E;
-  color: #94A3B8; font-weight: 600; border-bottom: 1px solid #1E293B;
-}
-td { padding: 0.6rem 0.9rem; border-bottom: 1px solid rgba(30, 41, 59, 0.6); }
-.ltr-cell { direction: ltr; text-align: left; font-family: monospace; }
-.ltr-inline { direction: ltr; display: inline-block; font-family: monospace; }
-.outcome-cell { font-weight: 600; color: #F8FAFC; }
-.role-badge {
-  display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.72rem; font-weight: 600;
-  border: 1px solid transparent;
-}
-.role-primary { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35); color: #34D399; }
-.role-secondary { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.35); color: #38BDF8; }
-.role-hedge { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.35); color: #FBBF24; }
-.pos { color: #34D399; font-weight: 700; }
-.neg { color: #FB7185; font-weight: 700; }
-.empty-state { padding: 3rem; text-align: center; color: #94A3B8; border: 1px solid #1E293B; background: #0F1623; }
-.modal-backdrop {
-  display: none; position: fixed; inset: 0; z-index: 60;
-  background: rgba(5, 8, 14, 0.8); backdrop-filter: blur(4px);
-  align-items: center; justify-content: center; padding: 1rem;
-}
-.modal-backdrop.open { display: flex; }
-.modal-box {
-  background: #0F1623; border: 1px solid #334155; max-width: 620px; width: 100%;
+
+.signal-card {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 22px;
   padding: 1.5rem;
+  margin-bottom: 1.35rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.signal-card:hover { border-color: rgba(56, 189, 248, 0.4); }
+.card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
+.cat-pill {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.time-pill {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #FBBF24;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.poly-btn {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  color: #FFFFFF;
+  padding: 0.5rem 1.05rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: opacity 0.15s ease;
+}
+.poly-btn:hover { opacity: 0.92; }
+
+.market-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.22rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  text-align: left;
+  letter-spacing: -0.01em;
+}
+
+.prob-bar-wrap {
+  background: rgba(9, 14, 26, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.15rem;
+}
+.prob-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  color: #CBD5E1;
+  margin-bottom: 0.45rem;
+}
+.prob-pct-text { font-size: 1rem; color: #34D399; font-weight: 800; }
+.prob-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(30, 41, 59, 0.9);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.prob-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981 0%, #34D399 100%);
+  border-radius: 999px;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+.plan-box {
+  border-radius: 18px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.plan-primary {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.14) 0%, rgba(9, 14, 26, 0.9) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.plan-hedge {
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.12) 0%, rgba(9, 14, 26, 0.9) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+.plan-solo {
+  background: rgba(9, 14, 26, 0.6);
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  justify-content: center;
+}
+
+.plan-box-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.step-pill {
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.28rem 0.75rem;
+  border-radius: 999px;
+}
+.pill-primary { background: #10B981; color: #04130D; }
+.pill-hedge { background: #38BDF8; color: #04131D; }
+.pill-solo { background: rgba(148, 163, 184, 0.18); color: #CBD5E1; }
+.price-tag { font-size: 0.8rem; color: #94A3B8; }
+
+.target-outcome-row {
+  background: rgba(9, 14, 26, 0.75);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.target-label { font-size: 0.85rem; color: #CBD5E1; font-weight: 600; }
+.target-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #34D399;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 0.2rem 0.75rem;
+  border-radius: 10px;
+}
+
+.money-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.money-item {
+  background: rgba(9, 14, 26, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+}
+.money-profit-box {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.07);
+}
+.money-label { font-size: 0.74rem; color: #94A3B8; }
+.money-val { font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-top: 0.15rem; }
+.money-sub { font-size: 0.74rem; color: #94A3B8; margin-top: 0.1rem; }
+
+.solo-text {
+  font-size: 0.88rem;
+  color: #CBD5E1;
+  line-height: 1.75;
+}
+.solo-text strong { color: #34D399; display: block; margin-bottom: 0.3rem; font-size: 0.95rem; }
+
+.hedge-helper {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.8rem;
+  color: #CBD5E1;
+}
+.backup-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.backup-item {
+  background: rgba(9, 14, 26, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.82rem;
+}
+.backup-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  color: #F8FAFC;
+}
+.backup-price { color: #94A3B8; font-size: 0.78rem; }
+.backup-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: #94A3B8;
+}
+.backup-dollar { color: #38BDF8; font-size: 0.92rem; }
+.backup-return strong { color: #E2E8F0; }
+
+.details-drawer {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding-top: 0.75rem;
+}
+.details-summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #94A3B8;
+  padding: 0.3rem 0.2rem;
+}
+.details-summary::-webkit-details-marker { display: none; }
+.details-summary:hover { color: #E2E8F0; }
+.details-body { margin-top: 0.75rem; }
+.table-scroll { overflow-x: auto; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.16); }
+.clean-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  min-width: 600px;
+  background: rgba(9, 14, 26, 0.8);
+}
+.clean-table th {
+  text-align: right;
+  padding: 0.65rem 0.85rem;
+  background: rgba(15, 23, 42, 0.95);
+  color: #94A3B8;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+.clean-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+.mini-badge {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+.badge-green { background: rgba(16, 185, 129, 0.15); color: #34D399; }
+.badge-blue { background: rgba(56, 189, 248, 0.15); color: #38BDF8; }
+.pos-text { color: #34D399 !important; font-weight: 800; }
+.neg-text { color: #FB7185 !important; font-weight: 800; }
+.empty-box {
+  text-align: center;
+  padding: 3rem;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 20px;
+  color: #94A3B8;
 }
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="topbar-inner">
-    <div class="brand">
-      <span class="brand-badge">POLYBET QUANT v2.0</span>
+
+<header class="navbar">
+  <div class="navbar-inner">
+    <div class="brand-wrap">
+      <div class="brand-logo">🎯</div>
       <div>
-        <div class="brand-title">ترمینال کوانت، سایزینگ کِلی و هجینگ بازارهای پیش‌بینی</div>
-        <div class="brand-sub">به‌روزرسانی خودکار GitHub Actions: <span class="ltr-inline">2026-11-10 19:19 UTC</span></div>
+        <div class="brand-title">دستیار هوشمند معاملات Polymarket</div>
+        <div class="brand-sub">آخرین بروزرسانی خودکار: <span class="ltr-num">2026-11-11 19:33 UTC</span></div>
       </div>
     </div>
-    <nav class="nav-links">
-      <a class="nav-tab active" href="index.html">📡 سیگنال‌های روزانه (8)</a>
-      <a class="nav-tab" href="results.html">📈 بک‌تست و نتایج تسویه‌شده</a>
+    <nav class="nav-pills">
+      <a class="nav-link active" href="index.html">📡 پیشنهادهای امروز (7)</a>
+      <a class="nav-link" href="results.html">🏆 کارنامه و نتایج قبلی</a>
     </nav>
   </div>
 </header>
 
-<main class="container">
-  <section class="kpi-strip">
-    <div class="kpi-box">
-      <div class="kpi-label">فرصت‌های فعال در پنجره تسویه</div>
-      <div class="kpi-val">8</div>
-      <div class="kpi-sub">فیلتر خودکار بازارهای ورزشی و اصلاح دسته‌بندی BoE</div>
-    </div>
-    <div class="kpi-box">
-      <div class="kpi-label">سیگنال‌های احتمال بالا (≥90¢)</div>
-      <div class="kpi-val">2</div>
-      <div class="kpi-sub">مناسب استراتژی کسب بازده کوتاه‌مدت</div>
-    </div>
-    <div class="kpi-box">
-      <div class="kpi-label">تله‌های آپشن مانعی شناسایی‌شده (&lt;15¢)</div>
-      <div class="kpi-val">0</div>
-      <div class="kpi-sub">محافظت خودکار سرمایه با سقف تخصیص ۵٪</div>
-    </div>
-    <div class="kpi-box">
-      <div class="kpi-label">سرمایه پایه هر موقعیت (Bankroll $)</div>
-      <div>
-        <input id="bankrollInput" type="number" min="10" step="50" value="1000" class="bankroll-input" oninput="recalcBankroll()">
+<main class="main-wrap">
+
+  <section class="guide-banner">
+    <div class="guide-title">💡 راهنمای سریع (در ۳ قدم ساده):</div>
+    <div class="guide-steps">
+      <div class="guide-step">
+        <strong>۱. تعیین مبلغ سرمایه</strong>
+        در کادر سبز زیر بنویسید قصد دارید برای هر بازار چند دلار وارد کنید (مثلاً ۱۰۰ یا ۱۰۰۰ دلار).
       </div>
-      <div class="kpi-sub">محاسبه زنده دلاری و تعداد سهام (Shares) در تمام جداول</div>
+      <div class="guide-step">
+        <strong>۲. مشاهده گزینه پیشنهادی</strong>
+        در هر کارت، <b>«گام ۱ (کادر سبز)»</b> دقیقاً می‌گوید کدام گزینه را بخرید و چقدر سود خالص می‌کنید.
+      </div>
+      <div class="guide-step">
+        <strong>۳. ثبت در سایت Polymarket</strong>
+        روی دکمه آبی <b>«ورود به بازار در Polymarket»</b> بالای هر کارت بزنید و همان گزینه را بخرید.
+      </div>
     </div>
   </section>
 
-  <section class="controls-panel">
-    <div class="controls-row">
-      <input id="searchInput" type="text" class="search-input" placeholder="جستجوی عنوان بازار، تیکر سهام (NVDA, SPY)، نرخ بهره یا کاندیدا..." oninput="applyFilters()">
-      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-        <label style="font-size:0.78rem;color:#94A3B8">
-          مرتب‌سازی:
-          <select id="sortSelect" class="select-input" onchange="applyFilters()">
-            <option value="confidence">امتیاز اجماع بیزی (Confidence)</option>
-            <option value="edge">لبه آماری مدل (Quant Edge)</option>
-            <option value="roi">بیشترین بازده خالص Primary</option>
-            <option value="days">نزدیک‌ترین زمان تسویه</option>
-          </select>
-        </label>
-        <label style="font-size:0.78rem;color:#CBD5E1;cursor:pointer;display:flex;align-items:center;gap:0.35rem">
-          <input id="hideTrapsCheck" type="checkbox" onchange="applyFilters()">
-          <span>حذف تله‌های مانعی (&lt;15¢)</span>
-        </label>
+  <section class="dashboard-bar">
+    <div class="stat-card stat-card-highlight">
+      <div class="stat-label">💰 سرمایه شما برای هر بازار (دلار $)</div>
+      <div class="bankroll-box">
+        <input id="bankrollInput" type="number" min="10" step="50" value="1000" class="bankroll-input" oninput="recalcBankroll()">
+        <span style="font-size:0.85rem;color:#34D399;font-weight:700">دلار</span>
       </div>
+      <div class="stat-hint">با تغییر این عدد، تمام مبالغ و سودها خودکار حساب می‌شوند</div>
     </div>
-    <div class="filter-pills">
-      <button type="button" class="filter-btn active" data-sec="all" onclick="setSectionFilter(this)">همه بازارها (8)</button>
-      <button type="button" class="filter-btn" data-sec="economy" onclick="setSectionFilter(this)">اقتصاد کلان و بانک‌های مرکزی</button>
-      <button type="button" class="filter-btn" data-sec="markets" onclick="setSectionFilter(this)">سهام، کالا و رمزارز</button>
-      <button type="button" class="filter-btn" data-sec="politics" onclick="setSectionFilter(this)">انتخابات و سیاست</button>
+
+    <div class="stat-card">
+      <div class="stat-label">📊 تعداد موقعیت‌های آماده معامله</div>
+      <div class="stat-val ltr-num">7</div>
+      <div class="stat-hint">بازارهای نزدیک به اعلام نتیجه (کمتر از ۷ روز)</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">✅ موقعیت‌های با شانس برد بالای ۸۰٪</div>
+      <div class="stat-val ltr-num" style="color:#34D399">2</div>
+      <div class="stat-hint">گزینه‌هایی که احتمال برد بسیار بالایی دارند</div>
+    </div>
+  </section>
+
+  <section class="filter-bar">
+    <div class="cat-tabs">
+      <button type="button" class="cat-tab active" data-sec="all" onclick="setCategory(this)">همه بازارها (7)</button>
+      <button type="button" class="cat-tab" data-sec="economy" onclick="setCategory(this)">📊 اقتصاد و تورم</button>
+      <button type="button" class="cat-tab" data-sec="markets" onclick="setCategory(this)">📈 سهام و رمزارز</button>
+      <button type="button" class="cat-tab" data-sec="politics" onclick="setCategory(this)">🗳️ سیاست و انتخابات</button>
+    </div>
+
+    <div class="filter-inputs">
+      <input id="searchInput" type="text" class="search-box" placeholder="🔍 جستجوی نام بازار (مثلاً CPI، Bitcoin...)" oninput="applyFilters()">
+      <select id="sortSelect" class="sort-select" onchange="applyFilters()">
+        <option value="prob">مرتب‌سازی: بیشترین شانس برد</option>
+        <option value="days">مرتب‌سازی: نزدیک‌ترین زمان نتیجه</option>
+        <option value="roi">مرتب‌سازی: بیشترین درصد سود</option>
+      </select>
     </div>
   </section>
 
   <section id="cardsContainer">
-    <article class="market-card"
-  data-section="economy"
-  data-category="cpi"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="4.17"
-  data-days="0.40"
-  data-search="october inflation us - annual 3.7% cpi">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">تورم و شاخص قیمت (CPI)</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">0.4d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+    
+    <article class="signal-card"
+      data-section="economy"
+      data-trap="0"
+      data-prob="96.00"
+      data-roi="4.20"
+      data-days="0.40"
+      data-search="october inflation us - annual 3.7% 📊 تورم و شاخص قیمت (cpi)">
+
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="cat-pill" style="border-color:#10B98144;color:#10B981">📊 تورم و شاخص قیمت (CPI)</span>
+          <span class="time-pill">⏳ 10 ساعت مانده</span>
+        </div>
+        <a class="poly-btn" href="https://polymarket.com/event/october-inflation-us-annual" target="_blank" rel="noopener">
+          ورود به بازار در Polymarket ↗
+        </a>
       </div>
-      <h3 class="card-title" dir="ltr">October Inflation US - Annual</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;5691083&quot;, &quot;question&quot;: &quot;October Inflation US - Annual&quot;, &quot;outcomes&quot;: [&quot;3.7%&quot;], &quot;outcome_prices&quot;: [0.96], &quot;end_date&quot;: &quot;2026-11-11T04:59:00+00:00&quot;, &quot;category&quot;: &quot;cpi&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;October Inflation US - Annual&quot;, &quot;primaryOutcome&quot;: &quot;3.7%&quot;, &quot;primaryPrice&quot;: 0.96, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/october-inflation-us-annual" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">3.7%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">100.00% <span class="js-primary-dollar" data-pct="100.0000">($1000)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">96.0¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+4.17%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 62.4¢ · TP: 98.0¢</div>
-    </div>
-  </div>
+      <h2 class="market-title" dir="ltr">October Inflation US - Annual</h2>
 
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (cpi API/.env؟)</div>
-  <div class="ai-result" id="ai-result-5691083"></div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="100.0000" data-price="0.960000"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">3.7%</td><td class="ltr-cell">100.00%</td><td class="ltr-cell js-dollar-cell">$1000.00</td><td class="ltr-cell">96.00¢</td><td class="ltr-cell js-shares-cell">1041.7</td><td class="ltr-cell">104.2%</td><td class="ltr-cell pos">+4.17%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
-<article class="market-card"
-  data-section="economy"
-  data-category="cpi"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="2.46"
-  data-days="0.40"
-  data-search="core cpi yoy - october 2026 2.6% cpi">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">تورم و شاخص قیمت (CPI)</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">0.4d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-labels">
+          <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
+          <strong class="ltr-num prob-pct-text">96.0%</strong>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:96.0%"></div>
+        </div>
       </div>
-      <h3 class="card-title" dir="ltr">Core CPI YoY - October 2026</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;5699276&quot;, &quot;question&quot;: &quot;Core CPI YoY - October 2026&quot;, &quot;outcomes&quot;: [&quot;2.6%&quot;], &quot;outcome_prices&quot;: [0.976], &quot;end_date&quot;: &quot;2026-11-11T04:59:00+00:00&quot;, &quot;category&quot;: &quot;cpi&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;Core CPI YoY - October 2026&quot;, &quot;primaryOutcome&quot;: &quot;2.6%&quot;, &quot;primaryPrice&quot;: 0.976, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/core-cpi-yoy-october-2026" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">2.6%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">100.00% <span class="js-primary-dollar" data-pct="100.0000">($1000)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">97.6¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+2.46%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 63.4¢ · TP: 98.0¢</div>
-    </div>
-  </div>
+      <div class="plan-grid">
+        <div class="plan-box plan-primary" data-primary-pct="100.0000" data-primary-roi="4.2000">
+          <div class="plan-box-header">
+            <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
+            <span class="price-tag">قیمت هر سهم: <strong class="ltr-num">96.0¢</strong></span>
+          </div>
 
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (cpi API/.env؟)</div>
-  <div class="ai-result" id="ai-result-5699276"></div>
+          <div class="target-outcome-row">
+            <span class="target-label">این گزینه را بخرید:</span>
+            <span class="target-value" dir="ltr">3.7%</span>
+          </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="100.0000" data-price="0.976000"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">2.6%</td><td class="ltr-cell">100.00%</td><td class="ltr-cell js-dollar-cell">$1000.00</td><td class="ltr-cell">97.60¢</td><td class="ltr-cell js-shares-cell">1024.6</td><td class="ltr-cell">102.5%</td><td class="ltr-cell pos">+2.46%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
-<article class="market-card"
-  data-section="markets"
-  data-category="stocks"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="5.01"
-  data-days="1.07"
-  data-search="will pixelworks (pxlw) beat quarterly earnings? no stocks">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">سهام و گزارش درآمدی (EPS)</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">1.1d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+          <div class="money-summary-grid">
+            <div class="money-item">
+              <span class="money-label">مبلغی که وارد می‌کنید</span>
+              <strong class="money-val ltr-num js-primary-dollar">$1000</strong>
+              <span class="money-sub">(<span class="ltr-num">100%</span> از سرمایه شما)</span>
+            </div>
+            <div class="money-item money-profit-box">
+              <span class="money-label">سود خالص شما در صورت برد</span>
+              <strong class="money-val pos-text ltr-num js-primary-profit">+$42</strong>
+              <span class="money-sub pos-text ltr-num">(+4.2% سود خالص)</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="plan-box plan-solo">
+          <div class="plan-box-header">
+            <span class="step-pill pill-solo">🛡️ وضعیت بیمه و پوشش ریسک</span>
+          </div>
+          <div class="solo-text">
+            <strong>نیاز به خرید گزینه کمکی ندارد.</strong>
+            شانس برد گزینه اصلی بالا است (<span class="ltr-num">96.0%</span>)؛ بنابراین کل بودجه این معامله فقط روی همان گزینه اصلی قرار می‌گیرد تا سود شما کم نشود.
+          </div>
+        </div>
+        
       </div>
-      <h3 class="card-title" dir="ltr">Will Pixelworks (PXLW) beat quarterly earnings?</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;6281225&quot;, &quot;question&quot;: &quot;Will Pixelworks (PXLW) beat quarterly earnings?&quot;, &quot;outcomes&quot;: [&quot;No&quot;, &quot;Yes&quot;], &quot;outcome_prices&quot;: [0.735, 0.265], &quot;end_date&quot;: &quot;2026-11-11T21:00:00+00:00&quot;, &quot;category&quot;: &quot;stocks&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;Will Pixelworks (PXLW) beat quarterly earnings?&quot;, &quot;primaryOutcome&quot;: &quot;No&quot;, &quot;primaryPrice&quot;: 0.735, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/pxlw-quarterly-earnings-nongaap-eps-11-09-2026-neg0pt27" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">No</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">77.18% <span class="js-primary-dollar" data-pct="77.1800">($772)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">73.5¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+5.01%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 47.8¢ · TP: 90.7¢</div>
-    </div>
-  </div>
-
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (stocks API/.env؟)</div>
-  <div class="ai-result" id="ai-result-6281225"></div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
+      <details class="details-drawer">
+        <summary class="details-summary">
+          <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
+          <span class="summary-arrow">▼</span>
+        </summary>
+        <div class="details-body">
+          <div class="table-scroll">
+            <table class="clean-table">
+              <thead>
+                <tr>
+                  <th>نوع انتخاب</th>
+                  <th>گزینه</th>
+                  <th>قیمت هر سهم</th>
+                  <th>درصد از بودجه</th>
+                  <th>مبلغ دلاری</th>
+                  <th>تعداد سهام دریافتی</th>
+                  <th>سود/زیان خالص کل سبد</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr data-size-pct="100.0000" data-price="0.960000">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>3.7%</strong></td>
+          <td class="ltr-num">96.0¢</td>
+          <td class="ltr-num">100.0%</td>
+          <td class="ltr-num js-row-dollar">$1000</td>
+          <td class="ltr-num js-row-shares">1041.7 سهم</td>
+          <td class="ltr-num pos-text js-row-net">+$42</td>
         </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="77.1800" data-price="0.735000"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">No</td><td class="ltr-cell">77.18%</td><td class="ltr-cell js-dollar-cell">$771.80</td><td class="ltr-cell">73.50¢</td><td class="ltr-cell js-shares-cell">1050.1</td><td class="ltr-cell">105.0%</td><td class="ltr-cell pos">+5.01%</td></tr><tr data-size-pct="22.8200" data-price="0.265000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">Yes</td><td class="ltr-cell">22.82%</td><td class="ltr-cell js-dollar-cell">$228.20</td><td class="ltr-cell">26.50¢</td><td class="ltr-cell js-shares-cell">861.1</td><td class="ltr-cell">86.1%</td><td class="ltr-cell neg">-13.89%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
-<article class="market-card"
-  data-section="economy"
-  data-category="cpi"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="4.99"
-  data-days="1.99"
-  data-search="argentina monthly inflation - october 1.9 to 2.1% cpi">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">تورم و شاخص قیمت (CPI)</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">2.0d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+        
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </article>
+    
+
+    <article class="signal-card"
+      data-section="economy"
+      data-trap="0"
+      data-prob="97.60"
+      data-roi="2.50"
+      data-days="0.40"
+      data-search="core cpi yoy - october 2026 2.6% 📊 تورم و شاخص قیمت (cpi)">
+
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="cat-pill" style="border-color:#10B98144;color:#10B981">📊 تورم و شاخص قیمت (CPI)</span>
+          <span class="time-pill">⏳ 10 ساعت مانده</span>
+        </div>
+        <a class="poly-btn" href="https://polymarket.com/event/core-cpi-yoy-october-2026" target="_blank" rel="noopener">
+          ورود به بازار در Polymarket ↗
+        </a>
       </div>
-      <h3 class="card-title" dir="ltr">Argentina Monthly Inflation - October</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;5734189&quot;, &quot;question&quot;: &quot;Argentina Monthly Inflation - October&quot;, &quot;outcomes&quot;: [&quot;1.9 to 2.1%&quot;, &quot;1.6 to 1.8%&quot;, &quot;\u22641.2%&quot;, &quot;1.3 to 1.5%&quot;, &quot;2.2 to 2.4%&quot;, &quot;2.5 to 2.7%&quot;, &quot;2.8 to 3.0%&quot;, &quot;3.1%+&quot;], &quot;outcome_prices&quot;: [0.565, 0.335, 0.0065, 0.0055, 0.0415, 0.019, 0.004, 0.004], &quot;end_date&quot;: &quot;2026-11-12T19:00:00+00:00&quot;, &quot;category&quot;: &quot;cpi&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;Argentina Monthly Inflation - October&quot;, &quot;primaryOutcome&quot;: &quot;1.9 to 2.1%&quot;, &quot;primaryPrice&quot;: 0.565, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/argentina-monthly-inflation-october-2026" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">1.9 to 2.1%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">59.32% <span class="js-primary-dollar" data-pct="59.3200">($593)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">56.5¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+4.99%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 36.7¢ · TP: 84.8¢</div>
-    </div>
-  </div>
+      <h2 class="market-title" dir="ltr">Core CPI YoY - October 2026</h2>
 
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (cpi API/.env؟)</div>
-  <div class="ai-result" id="ai-result-5734189"></div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="59.3200" data-price="0.565000"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">1.9 to 2.1%</td><td class="ltr-cell">59.32%</td><td class="ltr-cell js-dollar-cell">$593.20</td><td class="ltr-cell">56.50¢</td><td class="ltr-cell js-shares-cell">1049.9</td><td class="ltr-cell">105.0%</td><td class="ltr-cell pos">+4.99%</td></tr><tr data-size-pct="24.4100" data-price="0.335000"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">1.6 to 1.8%</td><td class="ltr-cell">24.41%</td><td class="ltr-cell js-dollar-cell">$244.10</td><td class="ltr-cell">33.50¢</td><td class="ltr-cell js-shares-cell">728.7</td><td class="ltr-cell">72.9%</td><td class="ltr-cell neg">-27.13%</td></tr><tr data-size-pct="1.3100" data-price="0.006500"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">≤1.2%</td><td class="ltr-cell">1.31%</td><td class="ltr-cell js-dollar-cell">$13.10</td><td class="ltr-cell">0.65¢</td><td class="ltr-cell js-shares-cell">2015.4</td><td class="ltr-cell">201.5%</td><td class="ltr-cell pos">+101.54%</td></tr><tr data-size-pct="1.1100" data-price="0.005500"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">1.3 to 1.5%</td><td class="ltr-cell">1.11%</td><td class="ltr-cell js-dollar-cell">$11.10</td><td class="ltr-cell">0.55¢</td><td class="ltr-cell js-shares-cell">2018.2</td><td class="ltr-cell">201.8%</td><td class="ltr-cell pos">+101.82%</td></tr><tr data-size-pct="8.3900" data-price="0.041500"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">2.2 to 2.4%</td><td class="ltr-cell">8.39%</td><td class="ltr-cell js-dollar-cell">$83.90</td><td class="ltr-cell">4.15¢</td><td class="ltr-cell js-shares-cell">2021.7</td><td class="ltr-cell">202.2%</td><td class="ltr-cell pos">+102.17%</td></tr><tr data-size-pct="3.8400" data-price="0.019000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">2.5 to 2.7%</td><td class="ltr-cell">3.84%</td><td class="ltr-cell js-dollar-cell">$38.40</td><td class="ltr-cell">1.90¢</td><td class="ltr-cell js-shares-cell">2021.1</td><td class="ltr-cell">202.1%</td><td class="ltr-cell pos">+102.11%</td></tr><tr data-size-pct="0.8100" data-price="0.004000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">2.8 to 3.0%</td><td class="ltr-cell">0.81%</td><td class="ltr-cell js-dollar-cell">$8.10</td><td class="ltr-cell">0.40¢</td><td class="ltr-cell js-shares-cell">2025.0</td><td class="ltr-cell">202.5%</td><td class="ltr-cell pos">+102.50%</td></tr><tr data-size-pct="0.8100" data-price="0.004000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">3.1%+</td><td class="ltr-cell">0.81%</td><td class="ltr-cell js-dollar-cell">$8.10</td><td class="ltr-cell">0.40¢</td><td class="ltr-cell js-shares-cell">2025.0</td><td class="ltr-cell">202.5%</td><td class="ltr-cell pos">+102.50%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
-<article class="market-card"
-  data-section="economy"
-  data-category="gdp"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="5.01"
-  data-days="2.40"
-  data-search="uk gdp growth in q3 2026 (qoq)? 0.6–0.7% gdp">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">رشد اقتصادی (GDP)</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">2.4d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-labels">
+          <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
+          <strong class="ltr-num prob-pct-text">97.6%</strong>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:97.6%"></div>
+        </div>
       </div>
-      <h3 class="card-title" dir="ltr">UK GDP growth in Q3 2026 (QoQ)?</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;3566403&quot;, &quot;question&quot;: &quot;UK GDP growth in Q3 2026 (QoQ)?&quot;, &quot;outcomes&quot;: [&quot;0.6\u20130.7%&quot;, &quot;0.8\u20130.9%&quot;, &quot;0.4\u20130.5%&quot;, &quot;Negative&quot;, &quot;0.0\u20130.1%&quot;, &quot;0.2\u20130.3%&quot;, &quot;1.0%+&quot;], &quot;outcome_prices&quot;: [0.6355, 0.2385, 0.07, 0.0035, 0.004, 0.005, 0.0045], &quot;end_date&quot;: &quot;2026-11-13T04:59:00+00:00&quot;, &quot;category&quot;: &quot;gdp&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;UK GDP growth in Q3 2026 (QoQ)?&quot;, &quot;primaryOutcome&quot;: &quot;0.6\u20130.7%&quot;, &quot;primaryPrice&quot;: 0.6355, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/uk-gdp-growth-in-q3-2026-qoq-20260813112748100" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">0.6–0.7%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">66.73% <span class="js-primary-dollar" data-pct="66.7300">($667)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">63.5¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+5.01%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 41.3¢ · TP: 87.2¢</div>
-    </div>
-  </div>
+      <div class="plan-grid">
+        <div class="plan-box plan-primary" data-primary-pct="100.0000" data-primary-roi="2.5000">
+          <div class="plan-box-header">
+            <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
+            <span class="price-tag">قیمت هر سهم: <strong class="ltr-num">97.6¢</strong></span>
+          </div>
 
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (gdp API/.env؟)</div>
-  <div class="ai-result" id="ai-result-3566403"></div>
+          <div class="target-outcome-row">
+            <span class="target-label">این گزینه را بخرید:</span>
+            <span class="target-value" dir="ltr">2.6%</span>
+          </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="66.7300" data-price="0.635500"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">0.6–0.7%</td><td class="ltr-cell">66.73%</td><td class="ltr-cell js-dollar-cell">$667.30</td><td class="ltr-cell">63.55¢</td><td class="ltr-cell js-shares-cell">1050.0</td><td class="ltr-cell">105.0%</td><td class="ltr-cell pos">+5.01%</td></tr><tr data-size-pct="15.4300" data-price="0.238500"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">0.8–0.9%</td><td class="ltr-cell">15.43%</td><td class="ltr-cell js-dollar-cell">$154.30</td><td class="ltr-cell">23.85¢</td><td class="ltr-cell js-shares-cell">647.0</td><td class="ltr-cell">64.7%</td><td class="ltr-cell neg">-35.29%</td></tr><tr data-size-pct="4.5300" data-price="0.070000"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">0.4–0.5%</td><td class="ltr-cell">4.53%</td><td class="ltr-cell js-dollar-cell">$45.30</td><td class="ltr-cell">7.00¢</td><td class="ltr-cell js-shares-cell">647.1</td><td class="ltr-cell">64.7%</td><td class="ltr-cell neg">-35.28%</td></tr><tr data-size-pct="2.7400" data-price="0.003500"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">Negative</td><td class="ltr-cell">2.74%</td><td class="ltr-cell js-dollar-cell">$27.40</td><td class="ltr-cell">0.35¢</td><td class="ltr-cell js-shares-cell">7828.6</td><td class="ltr-cell">782.9%</td><td class="ltr-cell pos">+682.87%</td></tr><tr data-size-pct="3.1300" data-price="0.004000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">0.0–0.1%</td><td class="ltr-cell">3.13%</td><td class="ltr-cell js-dollar-cell">$31.30</td><td class="ltr-cell">0.40¢</td><td class="ltr-cell js-shares-cell">7825.0</td><td class="ltr-cell">782.5%</td><td class="ltr-cell pos">+682.51%</td></tr><tr data-size-pct="3.9100" data-price="0.005000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">0.2–0.3%</td><td class="ltr-cell">3.91%</td><td class="ltr-cell js-dollar-cell">$39.10</td><td class="ltr-cell">0.50¢</td><td class="ltr-cell js-shares-cell">7820.0</td><td class="ltr-cell">782.0%</td><td class="ltr-cell pos">+682.01%</td></tr><tr data-size-pct="3.5200" data-price="0.004500"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">1.0%+</td><td class="ltr-cell">3.52%</td><td class="ltr-cell js-dollar-cell">$35.20</td><td class="ltr-cell">0.45¢</td><td class="ltr-cell js-shares-cell">7822.2</td><td class="ltr-cell">782.2%</td><td class="ltr-cell pos">+682.23%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
-<article class="market-card"
-  data-section="economy"
-  data-category="gdp"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="63.56"
-  data-days="5.19"
-  data-search="japan gdp growth in q3 2026 (qoq annualized)? 0.0%–0.8% gdp">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">رشد اقتصادی (GDP)</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">5.2d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+          <div class="money-summary-grid">
+            <div class="money-item">
+              <span class="money-label">مبلغی که وارد می‌کنید</span>
+              <strong class="money-val ltr-num js-primary-dollar">$1000</strong>
+              <span class="money-sub">(<span class="ltr-num">100%</span> از سرمایه شما)</span>
+            </div>
+            <div class="money-item money-profit-box">
+              <span class="money-label">سود خالص شما در صورت برد</span>
+              <strong class="money-val pos-text ltr-num js-primary-profit">+$25</strong>
+              <span class="money-sub pos-text ltr-num">(+2.5% سود خالص)</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="plan-box plan-solo">
+          <div class="plan-box-header">
+            <span class="step-pill pill-solo">🛡️ وضعیت بیمه و پوشش ریسک</span>
+          </div>
+          <div class="solo-text">
+            <strong>نیاز به خرید گزینه کمکی ندارد.</strong>
+            شانس برد گزینه اصلی بالا است (<span class="ltr-num">97.6%</span>)؛ بنابراین کل بودجه این معامله فقط روی همان گزینه اصلی قرار می‌گیرد تا سود شما کم نشود.
+          </div>
+        </div>
+        
       </div>
-      <h3 class="card-title" dir="ltr">Japan GDP growth in Q3 2026 (QoQ Annualized)?</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;3681003&quot;, &quot;question&quot;: &quot;Japan GDP growth in Q3 2026 (QoQ Annualized)?&quot;, &quot;outcomes&quot;: [&quot;0.0%\u20130.8%&quot;, &quot;-0.8%\u20130.0%&quot;, &quot;0.8%\u20131.6%&quot;, &quot;-1.6%\u2013 -0.8%&quot;, &quot;-2.4%\u2013 -1.6%&quot;, &quot;1.6%\u20132.4%&quot;, &quot;4.0%+&quot;, &quot;&lt;-2.4%&quot;, &quot;2.4%\u20133.2%&quot;, &quot;3.2%\u20134.0%&quot;], &quot;outcome_prices&quot;: [0.214, 0.195, 0.1625, 0.1415, 0.0265, 0.0185, 0.0135, 0.009, 0.009, 0.009], &quot;end_date&quot;: &quot;2026-11-16T00:00:00+00:00&quot;, &quot;category&quot;: &quot;gdp&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;Japan GDP growth in Q3 2026 (QoQ Annualized)?&quot;, &quot;primaryOutcome&quot;: &quot;0.0%\u20130.8%&quot;, &quot;primaryPrice&quot;: 0.214, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/japan-gdp-growth-in-q3-2026-qoq-annualized" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">0.0%–0.8%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">35.00% <span class="js-primary-dollar" data-pct="35.0000">($350)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">21.4¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+63.56%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 13.9¢ · TP: 72.5¢</div>
-    </div>
-  </div>
-
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (gdp API/.env؟)</div>
-  <div class="ai-result" id="ai-result-3681003"></div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
+      <details class="details-drawer">
+        <summary class="details-summary">
+          <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
+          <span class="summary-arrow">▼</span>
+        </summary>
+        <div class="details-body">
+          <div class="table-scroll">
+            <table class="clean-table">
+              <thead>
+                <tr>
+                  <th>نوع انتخاب</th>
+                  <th>گزینه</th>
+                  <th>قیمت هر سهم</th>
+                  <th>درصد از بودجه</th>
+                  <th>مبلغ دلاری</th>
+                  <th>تعداد سهام دریافتی</th>
+                  <th>سود/زیان خالص کل سبد</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr data-size-pct="100.0000" data-price="0.976000">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>2.6%</strong></td>
+          <td class="ltr-num">97.6¢</td>
+          <td class="ltr-num">100.0%</td>
+          <td class="ltr-num js-row-dollar">$1000</td>
+          <td class="ltr-num js-row-shares">1024.6 سهم</td>
+          <td class="ltr-num pos-text js-row-net">+$25</td>
         </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="35.0000" data-price="0.214000"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">0.0%–0.8%</td><td class="ltr-cell">35.00%</td><td class="ltr-cell js-dollar-cell">$350.00</td><td class="ltr-cell">21.40¢</td><td class="ltr-cell js-shares-cell">1635.5</td><td class="ltr-cell">163.6%</td><td class="ltr-cell pos">+63.56%</td></tr><tr data-size-pct="13.0100" data-price="0.195000"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">-0.8%–0.0%</td><td class="ltr-cell">13.01%</td><td class="ltr-cell js-dollar-cell">$130.10</td><td class="ltr-cell">19.50¢</td><td class="ltr-cell js-shares-cell">667.2</td><td class="ltr-cell">66.7%</td><td class="ltr-cell neg">-33.27%</td></tr><tr data-size-pct="10.8400" data-price="0.162500"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">0.8%–1.6%</td><td class="ltr-cell">10.84%</td><td class="ltr-cell js-dollar-cell">$108.40</td><td class="ltr-cell">16.25¢</td><td class="ltr-cell js-shares-cell">667.1</td><td class="ltr-cell">66.7%</td><td class="ltr-cell neg">-33.28%</td></tr><tr data-size-pct="9.4400" data-price="0.141500"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">-1.6%– -0.8%</td><td class="ltr-cell">9.44%</td><td class="ltr-cell js-dollar-cell">$94.40</td><td class="ltr-cell">14.15¢</td><td class="ltr-cell js-shares-cell">667.1</td><td class="ltr-cell">66.7%</td><td class="ltr-cell neg">-33.28%</td></tr><tr data-size-pct="1.7700" data-price="0.026500"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">-2.4%– -1.6%</td><td class="ltr-cell">1.77%</td><td class="ltr-cell js-dollar-cell">$17.70</td><td class="ltr-cell">2.65¢</td><td class="ltr-cell js-shares-cell">667.9</td><td class="ltr-cell">66.8%</td><td class="ltr-cell neg">-33.20%</td></tr><tr data-size-pct="1.2300" data-price="0.018500"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">1.6%–2.4%</td><td class="ltr-cell">1.23%</td><td class="ltr-cell js-dollar-cell">$12.30</td><td class="ltr-cell">1.85¢</td><td class="ltr-cell js-shares-cell">664.9</td><td class="ltr-cell">66.5%</td><td class="ltr-cell neg">-33.50%</td></tr><tr data-size-pct="0.9000" data-price="0.013500"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">4.0%+</td><td class="ltr-cell">0.90%</td><td class="ltr-cell js-dollar-cell">$9.00</td><td class="ltr-cell">1.35¢</td><td class="ltr-cell js-shares-cell">666.7</td><td class="ltr-cell">66.7%</td><td class="ltr-cell neg">-33.32%</td></tr><tr data-size-pct="0.6000" data-price="0.009000"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">&lt;-2.4%</td><td class="ltr-cell">0.60%</td><td class="ltr-cell js-dollar-cell">$6.00</td><td class="ltr-cell">0.90¢</td><td class="ltr-cell js-shares-cell">666.7</td><td class="ltr-cell">66.7%</td><td class="ltr-cell neg">-33.32%</td></tr><tr data-size-pct="0.6000" data-price="0.009000"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">2.4%–3.2%</td><td class="ltr-cell">0.60%</td><td class="ltr-cell js-dollar-cell">$6.00</td><td class="ltr-cell">0.90¢</td><td class="ltr-cell js-shares-cell">666.7</td><td class="ltr-cell">66.7%</td><td class="ltr-cell neg">-33.32%</td></tr><tr data-size-pct="26.6000" data-price="0.009000"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">3.2%–4.0%</td><td class="ltr-cell">26.60%</td><td class="ltr-cell js-dollar-cell">$266.00</td><td class="ltr-cell">0.90¢</td><td class="ltr-cell js-shares-cell">29555.6</td><td class="ltr-cell">2955.6%</td><td class="ltr-cell pos">+2855.57%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
-<article class="market-card"
-  data-section="markets"
-  data-category="crypto"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="5.00"
-  data-days="5.19"
-  data-search="best performing coin: week of november 9? bitcoin (btc) crypto">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">رمزارزها و نوسان ضمنی</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">5.2d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+        
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </article>
+    
+
+    <article class="signal-card"
+      data-section="markets"
+      data-trap="0"
+      data-prob="73.50"
+      data-roi="5.00"
+      data-days="1.07"
+      data-search="will pixelworks (pxlw) beat quarterly earnings? no 📈 گزارش سود شرکت‌ها و سهام">
+
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="cat-pill" style="border-color:#F59E0B44;color:#F59E0B">📈 گزارش سود شرکت‌ها و سهام</span>
+          <span class="time-pill">⏳ 1 روز و 2 ساعت مانده</span>
+        </div>
+        <a class="poly-btn" href="https://polymarket.com/event/pxlw-quarterly-earnings-nongaap-eps-11-09-2026-neg0pt27" target="_blank" rel="noopener">
+          ورود به بازار در Polymarket ↗
+        </a>
       </div>
-      <h3 class="card-title" dir="ltr">Best performing coin: week of November 9?</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;6236184&quot;, &quot;question&quot;: &quot;Best performing coin: week of November 9?&quot;, &quot;outcomes&quot;: [&quot;Bitcoin (BTC)&quot;, &quot;Ethereum (ETH)&quot;], &quot;outcome_prices&quot;: [0.49, 0.355], &quot;end_date&quot;: &quot;2026-11-16T00:00:00+00:00&quot;, &quot;category&quot;: &quot;crypto&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;Best performing coin: week of November 9?&quot;, &quot;primaryOutcome&quot;: &quot;Bitcoin (BTC)&quot;, &quot;primaryPrice&quot;: 0.49, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/best-performing-coin-week-of-november-9-2026" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">Bitcoin (BTC)</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">51.45% <span class="js-primary-dollar" data-pct="51.4500">($514)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">49.0¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+5.00%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 31.9¢ · TP: 82.2¢</div>
-    </div>
-  </div>
+      <h2 class="market-title" dir="ltr">Will Pixelworks (PXLW) beat quarterly earnings?</h2>
 
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (crypto API/.env؟)</div>
-  <div class="ai-result" id="ai-result-6236184"></div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="51.4500" data-price="0.490000"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">Bitcoin (BTC)</td><td class="ltr-cell">51.45%</td><td class="ltr-cell js-dollar-cell">$514.50</td><td class="ltr-cell">49.00¢</td><td class="ltr-cell js-shares-cell">1050.0</td><td class="ltr-cell">105.0%</td><td class="ltr-cell pos">+5.00%</td></tr><tr data-size-pct="48.5500" data-price="0.355000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">Ethereum (ETH)</td><td class="ltr-cell">48.55%</td><td class="ltr-cell js-dollar-cell">$485.50</td><td class="ltr-cell">35.50¢</td><td class="ltr-cell js-shares-cell">1367.6</td><td class="ltr-cell">136.8%</td><td class="ltr-cell pos">+36.76%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
-<article class="market-card"
-  data-section="markets"
-  data-category="crypto"
-  data-trap="0"
-  data-confidence="0.00"
-  data-edge="0.0000"
-  data-roi="4.99"
-  data-days="5.19"
-  data-search="bitcoin green days week of november 9? 0 green days crypto">
-  <div class="card-header">
-    <div>
-      <div class="card-meta">
-        <span class="cat-tag">رمزارزها و نوسان ضمنی</span>
-        <span>·</span>
-        <span>تسویه: <strong class="ltr-inline">5.2d</strong></span>
-        <span>·</span>
-        <span>تعداد منابع: <strong class="ltr-inline">0</strong></span>
-        <span>·</span>
-        <span>لبه کوانت (Edge): <strong class="ltr-inline pos">+0.0%</strong></span>
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-labels">
+          <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
+          <strong class="ltr-num prob-pct-text">73.5%</strong>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:73.5%"></div>
+        </div>
       </div>
-      <h3 class="card-title" dir="ltr">Bitcoin green days week of November 9?</h3>
-    </div>
-    <div class="card-actions">
-      <button type="button" class="btn-action btn-ai" data-market="{&quot;market_id&quot;: &quot;6236185&quot;, &quot;question&quot;: &quot;Bitcoin green days week of November 9?&quot;, &quot;outcomes&quot;: [&quot;0 Green Days&quot;, &quot;4 Green Days&quot;, &quot;1 Green Days&quot;, &quot;2 Green Days&quot;, &quot;3 Green Days&quot;, &quot;5 Green Days&quot;, &quot;6 Green Days&quot;, &quot;7 Green Days&quot;], &quot;outcome_prices&quot;: [0.505, 0.505, 0.47, 0.45, 0.495, 0.495, 0.495, 0.505], &quot;end_date&quot;: &quot;2026-11-16T00:00:00+00:00&quot;, &quot;category&quot;: &quot;crypto&quot;, &quot;consensus_score&quot;: 0.0, &quot;edge&quot;: 0.0}" onclick="runAiAnalysis(this)">🧠 تحلیل هوش مصنوعی</button>
-      <button type="button" class="btn-action" data-sim="{&quot;title&quot;: &quot;Bitcoin green days week of November 9?&quot;, &quot;primaryOutcome&quot;: &quot;0 Green Days&quot;, &quot;primaryPrice&quot;: 0.505, &quot;edge&quot;: 0.0, &quot;consensus&quot;: 0.0}" onclick="openKellyModal(this)">⚖️ شبیه‌ساز کِلی</button>
-      <a class="btn-action btn-link" href="https://polymarket.com/event/bitcoin-green-days-week-of-november-9-2026" target="_blank" rel="noopener">Polymarket ↗</a>
-    </div>
-  </div>
 
-  <div class="metrics-strip">
-    <div class="metric-cell">
-      <div class="metric-label">گزینه اصلی (Primary)</div>
-      <div class="metric-val ltr-inline">0 Green Days</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سایز بهینه (کِلی v2)</div>
-      <div class="metric-val ltr-inline pos">53.02% <span class="js-primary-dollar" data-pct="53.0200">($530)</span></div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">قیمت بازار (CLOB)</div>
-      <div class="metric-val ltr-inline">50.5¢</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">اجماع بیزی (کالیبره)</div>
-      <div class="metric-val ltr-inline">0.0%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">سود خالص اگر Primary ببرد</div>
-      <div class="metric-val ltr-inline pos">+4.99%</div>
-    </div>
-    <div class="metric-cell">
-      <div class="metric-label">حد ضرر / حد سود پیشنهادی</div>
-      <div class="metric-val ltr-inline">SL: 32.8¢ · TP: 82.7¢</div>
-    </div>
-  </div>
+      <div class="plan-grid">
+        <div class="plan-box plan-primary" data-primary-pct="77.1800" data-primary-roi="5.0000">
+          <div class="plan-box-header">
+            <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
+            <span class="price-tag">قیمت هر سهم: <strong class="ltr-num">73.5¢</strong></span>
+          </div>
 
-  <div class="warning-banner">⚠️ no independent sources available — sized at floor, using market-implied favorite (crypto API/.env؟)</div>
-  <div class="ai-result" id="ai-result-6236185"></div>
+          <div class="target-outcome-row">
+            <span class="target-label">این گزینه را بخرید:</span>
+            <span class="target-value" dir="ltr">No</span>
+          </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>نقش پایه (Role)</th>
-          <th>گزینه (Outcome)</th>
-          <th>سهم بودجه</th>
-          <th>مبلغ دلاری ($)</th>
-          <th>قیمت فعلی</th>
-          <th>تعداد سهام (Shares)</th>
-          <th>دریافتی ناخالص</th>
-          <th>سود/زیان خالص کل سبد در صورت برد</th>
+          <div class="money-summary-grid">
+            <div class="money-item">
+              <span class="money-label">مبلغی که وارد می‌کنید</span>
+              <strong class="money-val ltr-num js-primary-dollar">$772</strong>
+              <span class="money-sub">(<span class="ltr-num">77%</span> از سرمایه شما)</span>
+            </div>
+            <div class="money-item money-profit-box">
+              <span class="money-label">سود خالص شما در صورت برد</span>
+              <strong class="money-val pos-text ltr-num js-primary-profit">+$50</strong>
+              <span class="money-sub pos-text ltr-num">(+5.0% سود خالص)</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="plan-box plan-hedge">
+          <div class="plan-box-header">
+            <span class="step-pill pill-hedge">گام ۲ · بیمه ریسک (برای نسوختن کل پول)</span>
+          </div>
+          <p class="hedge-helper">
+            اگر گزینه اول برنده نشود و یکی از گزینه‌های محتمل زیر اتفاق بیفتد، این پوشش باعث می‌شود پول شما نسوزد:
+          </p>
+          <div class="backup-list">
+            
+                <div class="backup-item" data-size-pct="22.8200" data-price="0.265000">
+                  <div class="backup-top">
+                    <span class="backup-label">گزینه جایگزین 1: <strong class="ltr-num">Yes</strong></span>
+                    <span class="backup-price">قیمت: <strong class="ltr-num">26.5¢</strong></span>
+                  </div>
+                  <div class="backup-bottom">
+                    <span>مبلغ خرید: <strong class="ltr-num backup-dollar js-backup-dollar">$228</strong> (<span class="ltr-num">23%</span> بودجه)</span>
+                    <span class="backup-return">دریافتی اگر این گزینه ببرد: <strong class="ltr-num js-backup-payout">$861</strong></span>
+                  </div>
+                </div>
+                
+          </div>
+        </div>
+        
+      </div>
+
+      <details class="details-drawer">
+        <summary class="details-summary">
+          <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
+          <span class="summary-arrow">▼</span>
+        </summary>
+        <div class="details-body">
+          <div class="table-scroll">
+            <table class="clean-table">
+              <thead>
+                <tr>
+                  <th>نوع انتخاب</th>
+                  <th>گزینه</th>
+                  <th>قیمت هر سهم</th>
+                  <th>درصد از بودجه</th>
+                  <th>مبلغ دلاری</th>
+                  <th>تعداد سهام دریافتی</th>
+                  <th>سود/زیان خالص کل سبد</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr data-size-pct="77.1800" data-price="0.735000">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>No</strong></td>
+          <td class="ltr-num">73.5¢</td>
+          <td class="ltr-num">77.2%</td>
+          <td class="ltr-num js-row-dollar">$772</td>
+          <td class="ltr-num js-row-shares">1050.1 سهم</td>
+          <td class="ltr-num pos-text js-row-net">+$50</td>
         </tr>
-      </thead>
-      <tbody>
-        <tr data-size-pct="53.0200" data-price="0.505000"><td><span class="role-badge role-primary">گزینه اصلی (Primary)</span></td><td class="ltr-cell outcome-cell">0 Green Days</td><td class="ltr-cell">53.02%</td><td class="ltr-cell js-dollar-cell">$530.20</td><td class="ltr-cell">50.50¢</td><td class="ltr-cell js-shares-cell">1049.9</td><td class="ltr-cell">105.0%</td><td class="ltr-cell pos">+4.99%</td></tr><tr data-size-pct="28.1800" data-price="0.505000"><td><span class="role-badge role-secondary">گزینه دوم (Secondary)</span></td><td class="ltr-cell outcome-cell">4 Green Days</td><td class="ltr-cell">28.18%</td><td class="ltr-cell js-dollar-cell">$281.80</td><td class="ltr-cell">50.50¢</td><td class="ltr-cell js-shares-cell">558.0</td><td class="ltr-cell">55.8%</td><td class="ltr-cell neg">-44.20%</td></tr><tr data-size-pct="3.0300" data-price="0.470000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">1 Green Days</td><td class="ltr-cell">3.03%</td><td class="ltr-cell js-dollar-cell">$30.30</td><td class="ltr-cell">47.00¢</td><td class="ltr-cell js-shares-cell">64.5</td><td class="ltr-cell">6.4%</td><td class="ltr-cell neg">-93.55%</td></tr><tr data-size-pct="2.9100" data-price="0.450000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">2 Green Days</td><td class="ltr-cell">2.91%</td><td class="ltr-cell js-dollar-cell">$29.10</td><td class="ltr-cell">45.00¢</td><td class="ltr-cell js-shares-cell">64.7</td><td class="ltr-cell">6.5%</td><td class="ltr-cell neg">-93.53%</td></tr><tr data-size-pct="3.2000" data-price="0.495000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">3 Green Days</td><td class="ltr-cell">3.20%</td><td class="ltr-cell js-dollar-cell">$32.00</td><td class="ltr-cell">49.50¢</td><td class="ltr-cell js-shares-cell">64.6</td><td class="ltr-cell">6.5%</td><td class="ltr-cell neg">-93.54%</td></tr><tr data-size-pct="3.2000" data-price="0.495000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">5 Green Days</td><td class="ltr-cell">3.20%</td><td class="ltr-cell js-dollar-cell">$32.00</td><td class="ltr-cell">49.50¢</td><td class="ltr-cell js-shares-cell">64.6</td><td class="ltr-cell">6.5%</td><td class="ltr-cell neg">-93.54%</td></tr><tr data-size-pct="3.2000" data-price="0.495000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">6 Green Days</td><td class="ltr-cell">3.20%</td><td class="ltr-cell js-dollar-cell">$32.00</td><td class="ltr-cell">49.50¢</td><td class="ltr-cell js-shares-cell">64.6</td><td class="ltr-cell">6.5%</td><td class="ltr-cell neg">-93.54%</td></tr><tr data-size-pct="3.2600" data-price="0.505000"><td><span class="role-badge role-hedge">پوشش هج (Hedge)</span></td><td class="ltr-cell outcome-cell">7 Green Days</td><td class="ltr-cell">3.26%</td><td class="ltr-cell js-dollar-cell">$32.60</td><td class="ltr-cell">50.50¢</td><td class="ltr-cell js-shares-cell">64.6</td><td class="ltr-cell">6.5%</td><td class="ltr-cell neg">-93.54%</td></tr>
-      </tbody>
-    </table>
-  </div>
-</article>
+        
+            <tr data-size-pct="22.8200" data-price="0.265000">
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
+              <td class="ltr-num"><strong>Yes</strong></td>
+              <td class="ltr-num">26.5¢</td>
+              <td class="ltr-num">22.8%</td>
+              <td class="ltr-num js-row-dollar">$228</td>
+              <td class="ltr-num js-row-shares">861.1 سهم</td>
+              <td class="ltr-num neg-text js-row-net">-$139</td>
+            </tr>
+            
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </article>
+    
+
+    <article class="signal-card"
+      data-section="economy"
+      data-trap="0"
+      data-prob="48.00"
+      data-roi="5.00"
+      data-days="1.99"
+      data-search="argentina monthly inflation - october 1.9 to 2.1% 📊 تورم و شاخص قیمت (cpi)">
+
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="cat-pill" style="border-color:#10B98144;color:#10B981">📊 تورم و شاخص قیمت (CPI)</span>
+          <span class="time-pill">⏳ 1 روز و 24 ساعت مانده</span>
+        </div>
+        <a class="poly-btn" href="https://polymarket.com/event/argentina-monthly-inflation-october-2026" target="_blank" rel="noopener">
+          ورود به بازار در Polymarket ↗
+        </a>
+      </div>
+
+      <h2 class="market-title" dir="ltr">Argentina Monthly Inflation - October</h2>
+
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-labels">
+          <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
+          <strong class="ltr-num prob-pct-text">48.0%</strong>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:48.0%"></div>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        <div class="plan-box plan-primary" data-primary-pct="50.4000" data-primary-roi="5.0000">
+          <div class="plan-box-header">
+            <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
+            <span class="price-tag">قیمت هر سهم: <strong class="ltr-num">48.0¢</strong></span>
+          </div>
+
+          <div class="target-outcome-row">
+            <span class="target-label">این گزینه را بخرید:</span>
+            <span class="target-value" dir="ltr">1.9 to 2.1%</span>
+          </div>
+
+          <div class="money-summary-grid">
+            <div class="money-item">
+              <span class="money-label">مبلغی که وارد می‌کنید</span>
+              <strong class="money-val ltr-num js-primary-dollar">$504</strong>
+              <span class="money-sub">(<span class="ltr-num">50%</span> از سرمایه شما)</span>
+            </div>
+            <div class="money-item money-profit-box">
+              <span class="money-label">سود خالص شما در صورت برد</span>
+              <strong class="money-val pos-text ltr-num js-primary-profit">+$50</strong>
+              <span class="money-sub pos-text ltr-num">(+5.0% سود خالص)</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="plan-box plan-hedge">
+          <div class="plan-box-header">
+            <span class="step-pill pill-hedge">گام ۲ · بیمه ریسک (برای نسوختن کل پول)</span>
+          </div>
+          <p class="hedge-helper">
+            اگر گزینه اول برنده نشود و یکی از گزینه‌های محتمل زیر اتفاق بیفتد، این پوشش باعث می‌شود پول شما نسوزد:
+          </p>
+          <div class="backup-list">
+            
+                <div class="backup-item" data-size-pct="49.6000" data-price="0.340000">
+                  <div class="backup-top">
+                    <span class="backup-label">گزینه جایگزین 1: <strong class="ltr-num">1.6 to 1.8%</strong></span>
+                    <span class="backup-price">قیمت: <strong class="ltr-num">34.0¢</strong></span>
+                  </div>
+                  <div class="backup-bottom">
+                    <span>مبلغ خرید: <strong class="ltr-num backup-dollar js-backup-dollar">$496</strong> (<span class="ltr-num">50%</span> بودجه)</span>
+                    <span class="backup-return">دریافتی اگر این گزینه ببرد: <strong class="ltr-num js-backup-payout">$1459</strong></span>
+                  </div>
+                </div>
+                
+          </div>
+        </div>
+        
+      </div>
+
+      <details class="details-drawer">
+        <summary class="details-summary">
+          <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
+          <span class="summary-arrow">▼</span>
+        </summary>
+        <div class="details-body">
+          <div class="table-scroll">
+            <table class="clean-table">
+              <thead>
+                <tr>
+                  <th>نوع انتخاب</th>
+                  <th>گزینه</th>
+                  <th>قیمت هر سهم</th>
+                  <th>درصد از بودجه</th>
+                  <th>مبلغ دلاری</th>
+                  <th>تعداد سهام دریافتی</th>
+                  <th>سود/زیان خالص کل سبد</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr data-size-pct="50.4000" data-price="0.480000">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>1.9 to 2.1%</strong></td>
+          <td class="ltr-num">48.0¢</td>
+          <td class="ltr-num">50.4%</td>
+          <td class="ltr-num js-row-dollar">$504</td>
+          <td class="ltr-num js-row-shares">1050.0 سهم</td>
+          <td class="ltr-num pos-text js-row-net">+$50</td>
+        </tr>
+        
+            <tr data-size-pct="49.6000" data-price="0.340000">
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
+              <td class="ltr-num"><strong>1.6 to 1.8%</strong></td>
+              <td class="ltr-num">34.0¢</td>
+              <td class="ltr-num">49.6%</td>
+              <td class="ltr-num js-row-dollar">$496</td>
+              <td class="ltr-num js-row-shares">1458.8 سهم</td>
+              <td class="ltr-num pos-text js-row-net">+$459</td>
+            </tr>
+            
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </article>
+    
+
+    <article class="signal-card"
+      data-section="economy"
+      data-trap="0"
+      data-prob="63.50"
+      data-roi="5.00"
+      data-days="2.41"
+      data-search="uk gdp growth in q3 2026 (qoq)? 0.6–0.7% 🌐 رشد اقتصادی کشورها (gdp)">
+
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="cat-pill" style="border-color:#60A5FA44;color:#60A5FA">🌐 رشد اقتصادی کشورها (GDP)</span>
+          <span class="time-pill">⏳ 2 روز و 10 ساعت مانده</span>
+        </div>
+        <a class="poly-btn" href="https://polymarket.com/event/uk-gdp-growth-in-q3-2026-qoq-20260813112748100" target="_blank" rel="noopener">
+          ورود به بازار در Polymarket ↗
+        </a>
+      </div>
+
+      <h2 class="market-title" dir="ltr">UK GDP growth in Q3 2026 (QoQ)?</h2>
+
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-labels">
+          <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
+          <strong class="ltr-num prob-pct-text">63.5%</strong>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:63.5%"></div>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        <div class="plan-box plan-primary" data-primary-pct="66.7300" data-primary-roi="5.0000">
+          <div class="plan-box-header">
+            <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
+            <span class="price-tag">قیمت هر سهم: <strong class="ltr-num">63.5¢</strong></span>
+          </div>
+
+          <div class="target-outcome-row">
+            <span class="target-label">این گزینه را بخرید:</span>
+            <span class="target-value" dir="ltr">0.6–0.7%</span>
+          </div>
+
+          <div class="money-summary-grid">
+            <div class="money-item">
+              <span class="money-label">مبلغی که وارد می‌کنید</span>
+              <strong class="money-val ltr-num js-primary-dollar">$667</strong>
+              <span class="money-sub">(<span class="ltr-num">67%</span> از سرمایه شما)</span>
+            </div>
+            <div class="money-item money-profit-box">
+              <span class="money-label">سود خالص شما در صورت برد</span>
+              <strong class="money-val pos-text ltr-num js-primary-profit">+$50</strong>
+              <span class="money-sub pos-text ltr-num">(+5.0% سود خالص)</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="plan-box plan-hedge">
+          <div class="plan-box-header">
+            <span class="step-pill pill-hedge">گام ۲ · بیمه ریسک (برای نسوختن کل پول)</span>
+          </div>
+          <p class="hedge-helper">
+            اگر گزینه اول برنده نشود و یکی از گزینه‌های محتمل زیر اتفاق بیفتد، این پوشش باعث می‌شود پول شما نسوزد:
+          </p>
+          <div class="backup-list">
+            
+                <div class="backup-item" data-size-pct="25.7200" data-price="0.238500">
+                  <div class="backup-top">
+                    <span class="backup-label">گزینه جایگزین 1: <strong class="ltr-num">0.8–0.9%</strong></span>
+                    <span class="backup-price">قیمت: <strong class="ltr-num">23.8¢</strong></span>
+                  </div>
+                  <div class="backup-bottom">
+                    <span>مبلغ خرید: <strong class="ltr-num backup-dollar js-backup-dollar">$257</strong> (<span class="ltr-num">26%</span> بودجه)</span>
+                    <span class="backup-return">دریافتی اگر این گزینه ببرد: <strong class="ltr-num js-backup-payout">$1078</strong></span>
+                  </div>
+                </div>
+                
+                <div class="backup-item" data-size-pct="7.5500" data-price="0.070000">
+                  <div class="backup-top">
+                    <span class="backup-label">گزینه جایگزین 2: <strong class="ltr-num">0.4–0.5%</strong></span>
+                    <span class="backup-price">قیمت: <strong class="ltr-num">7.0¢</strong></span>
+                  </div>
+                  <div class="backup-bottom">
+                    <span>مبلغ خرید: <strong class="ltr-num backup-dollar js-backup-dollar">$76</strong> (<span class="ltr-num">8%</span> بودجه)</span>
+                    <span class="backup-return">دریافتی اگر این گزینه ببرد: <strong class="ltr-num js-backup-payout">$1079</strong></span>
+                  </div>
+                </div>
+                
+          </div>
+        </div>
+        
+      </div>
+
+      <details class="details-drawer">
+        <summary class="details-summary">
+          <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
+          <span class="summary-arrow">▼</span>
+        </summary>
+        <div class="details-body">
+          <div class="table-scroll">
+            <table class="clean-table">
+              <thead>
+                <tr>
+                  <th>نوع انتخاب</th>
+                  <th>گزینه</th>
+                  <th>قیمت هر سهم</th>
+                  <th>درصد از بودجه</th>
+                  <th>مبلغ دلاری</th>
+                  <th>تعداد سهام دریافتی</th>
+                  <th>سود/زیان خالص کل سبد</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr data-size-pct="66.7300" data-price="0.635500">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>0.6–0.7%</strong></td>
+          <td class="ltr-num">63.5¢</td>
+          <td class="ltr-num">66.7%</td>
+          <td class="ltr-num js-row-dollar">$667</td>
+          <td class="ltr-num js-row-shares">1050.0 سهم</td>
+          <td class="ltr-num pos-text js-row-net">+$50</td>
+        </tr>
+        
+            <tr data-size-pct="25.7200" data-price="0.238500">
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
+              <td class="ltr-num"><strong>0.8–0.9%</strong></td>
+              <td class="ltr-num">23.8¢</td>
+              <td class="ltr-num">25.7%</td>
+              <td class="ltr-num js-row-dollar">$257</td>
+              <td class="ltr-num js-row-shares">1078.4 سهم</td>
+              <td class="ltr-num pos-text js-row-net">+$78</td>
+            </tr>
+            
+            <tr data-size-pct="7.5500" data-price="0.070000">
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
+              <td class="ltr-num"><strong>0.4–0.5%</strong></td>
+              <td class="ltr-num">7.0¢</td>
+              <td class="ltr-num">7.5%</td>
+              <td class="ltr-num js-row-dollar">$76</td>
+              <td class="ltr-num js-row-shares">1078.6 سهم</td>
+              <td class="ltr-num pos-text js-row-net">+$79</td>
+            </tr>
+            
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </article>
+    
+
+    <article class="signal-card"
+      data-section="economy"
+      data-trap="0"
+      data-prob="23.50"
+      data-roi="48.60"
+      data-days="5.20"
+      data-search="japan gdp growth in q3 2026 (qoq annualized)? 0.0%–0.8% 🌐 رشد اقتصادی کشورها (gdp)">
+
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="cat-pill" style="border-color:#60A5FA44;color:#60A5FA">🌐 رشد اقتصادی کشورها (GDP)</span>
+          <span class="time-pill">⏳ 5.2 روز مانده</span>
+        </div>
+        <a class="poly-btn" href="https://polymarket.com/event/japan-gdp-growth-in-q3-2026-qoq-annualized" target="_blank" rel="noopener">
+          ورود به بازار در Polymarket ↗
+        </a>
+      </div>
+
+      <h2 class="market-title" dir="ltr">Japan GDP growth in Q3 2026 (QoQ Annualized)?</h2>
+
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-labels">
+          <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
+          <strong class="ltr-num prob-pct-text">23.5%</strong>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:23.5%"></div>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        <div class="plan-box plan-primary" data-primary-pct="35.0000" data-primary-roi="48.6000">
+          <div class="plan-box-header">
+            <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
+            <span class="price-tag">قیمت هر سهم: <strong class="ltr-num">23.5¢</strong></span>
+          </div>
+
+          <div class="target-outcome-row">
+            <span class="target-label">این گزینه را بخرید:</span>
+            <span class="target-value" dir="ltr">0.0%–0.8%</span>
+          </div>
+
+          <div class="money-summary-grid">
+            <div class="money-item">
+              <span class="money-label">مبلغی که وارد می‌کنید</span>
+              <strong class="money-val ltr-num js-primary-dollar">$350</strong>
+              <span class="money-sub">(<span class="ltr-num">35%</span> از سرمایه شما)</span>
+            </div>
+            <div class="money-item money-profit-box">
+              <span class="money-label">سود خالص شما در صورت برد</span>
+              <strong class="money-val pos-text ltr-num js-primary-profit">+$486</strong>
+              <span class="money-sub pos-text ltr-num">(+48.6% سود خالص)</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="plan-box plan-hedge">
+          <div class="plan-box-header">
+            <span class="step-pill pill-hedge">گام ۲ · بیمه ریسک (برای نسوختن کل پول)</span>
+          </div>
+          <p class="hedge-helper">
+            اگر گزینه اول برنده نشود و یکی از گزینه‌های محتمل زیر اتفاق بیفتد، این پوشش باعث می‌شود پول شما نسوزد:
+          </p>
+          <div class="backup-list">
+            
+                <div class="backup-item" data-size-pct="35.4500" data-price="0.195000">
+                  <div class="backup-top">
+                    <span class="backup-label">گزینه جایگزین 1: <strong class="ltr-num">-0.8%–0.0%</strong></span>
+                    <span class="backup-price">قیمت: <strong class="ltr-num">19.5¢</strong></span>
+                  </div>
+                  <div class="backup-bottom">
+                    <span>مبلغ خرید: <strong class="ltr-num backup-dollar js-backup-dollar">$355</strong> (<span class="ltr-num">35%</span> بودجه)</span>
+                    <span class="backup-return">دریافتی اگر این گزینه ببرد: <strong class="ltr-num js-backup-payout">$1818</strong></span>
+                  </div>
+                </div>
+                
+                <div class="backup-item" data-size-pct="29.5500" data-price="0.162500">
+                  <div class="backup-top">
+                    <span class="backup-label">گزینه جایگزین 2: <strong class="ltr-num">0.8%–1.6%</strong></span>
+                    <span class="backup-price">قیمت: <strong class="ltr-num">16.2¢</strong></span>
+                  </div>
+                  <div class="backup-bottom">
+                    <span>مبلغ خرید: <strong class="ltr-num backup-dollar js-backup-dollar">$296</strong> (<span class="ltr-num">30%</span> بودجه)</span>
+                    <span class="backup-return">دریافتی اگر این گزینه ببرد: <strong class="ltr-num js-backup-payout">$1818</strong></span>
+                  </div>
+                </div>
+                
+          </div>
+        </div>
+        
+      </div>
+
+      <details class="details-drawer">
+        <summary class="details-summary">
+          <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
+          <span class="summary-arrow">▼</span>
+        </summary>
+        <div class="details-body">
+          <div class="table-scroll">
+            <table class="clean-table">
+              <thead>
+                <tr>
+                  <th>نوع انتخاب</th>
+                  <th>گزینه</th>
+                  <th>قیمت هر سهم</th>
+                  <th>درصد از بودجه</th>
+                  <th>مبلغ دلاری</th>
+                  <th>تعداد سهام دریافتی</th>
+                  <th>سود/زیان خالص کل سبد</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr data-size-pct="35.0000" data-price="0.235500">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>0.0%–0.8%</strong></td>
+          <td class="ltr-num">23.5¢</td>
+          <td class="ltr-num">35.0%</td>
+          <td class="ltr-num js-row-dollar">$350</td>
+          <td class="ltr-num js-row-shares">1486.2 سهم</td>
+          <td class="ltr-num pos-text js-row-net">+$486</td>
+        </tr>
+        
+            <tr data-size-pct="35.4500" data-price="0.195000">
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
+              <td class="ltr-num"><strong>-0.8%–0.0%</strong></td>
+              <td class="ltr-num">19.5¢</td>
+              <td class="ltr-num">35.5%</td>
+              <td class="ltr-num js-row-dollar">$354</td>
+              <td class="ltr-num js-row-shares">1817.9 سهم</td>
+              <td class="ltr-num pos-text js-row-net">+$818</td>
+            </tr>
+            
+            <tr data-size-pct="29.5500" data-price="0.162500">
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
+              <td class="ltr-num"><strong>0.8%–1.6%</strong></td>
+              <td class="ltr-num">16.2¢</td>
+              <td class="ltr-num">29.6%</td>
+              <td class="ltr-num js-row-dollar">$296</td>
+              <td class="ltr-num js-row-shares">1818.5 سهم</td>
+              <td class="ltr-num pos-text js-row-net">+$818</td>
+            </tr>
+            
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </article>
+    
+
+    <article class="signal-card"
+      data-section="markets"
+      data-trap="0"
+      data-prob="48.50"
+      data-roi="5.00"
+      data-days="5.20"
+      data-search="best performing coin: week of november 9? bitcoin (btc) 🪙 بیت‌کوین و رمزارزها">
+
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="cat-pill" style="border-color:#F9731644;color:#F97316">🪙 بیت‌کوین و رمزارزها</span>
+          <span class="time-pill">⏳ 5.2 روز مانده</span>
+        </div>
+        <a class="poly-btn" href="https://polymarket.com/event/best-performing-coin-week-of-november-9-2026" target="_blank" rel="noopener">
+          ورود به بازار در Polymarket ↗
+        </a>
+      </div>
+
+      <h2 class="market-title" dir="ltr">Best performing coin: week of November 9?</h2>
+
+      <div class="prob-bar-wrap">
+        <div class="prob-bar-labels">
+          <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
+          <strong class="ltr-num prob-pct-text">48.5%</strong>
+        </div>
+        <div class="prob-track">
+          <div class="prob-fill" style="width:48.5%"></div>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        <div class="plan-box plan-primary" data-primary-pct="50.9200" data-primary-roi="5.0000">
+          <div class="plan-box-header">
+            <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
+            <span class="price-tag">قیمت هر سهم: <strong class="ltr-num">48.5¢</strong></span>
+          </div>
+
+          <div class="target-outcome-row">
+            <span class="target-label">این گزینه را بخرید:</span>
+            <span class="target-value" dir="ltr">Bitcoin (BTC)</span>
+          </div>
+
+          <div class="money-summary-grid">
+            <div class="money-item">
+              <span class="money-label">مبلغی که وارد می‌کنید</span>
+              <strong class="money-val ltr-num js-primary-dollar">$509</strong>
+              <span class="money-sub">(<span class="ltr-num">51%</span> از سرمایه شما)</span>
+            </div>
+            <div class="money-item money-profit-box">
+              <span class="money-label">سود خالص شما در صورت برد</span>
+              <strong class="money-val pos-text ltr-num js-primary-profit">+$50</strong>
+              <span class="money-sub pos-text ltr-num">(+5.0% سود خالص)</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="plan-box plan-hedge">
+          <div class="plan-box-header">
+            <span class="step-pill pill-hedge">گام ۲ · بیمه ریسک (برای نسوختن کل پول)</span>
+          </div>
+          <p class="hedge-helper">
+            اگر گزینه اول برنده نشود و یکی از گزینه‌های محتمل زیر اتفاق بیفتد، این پوشش باعث می‌شود پول شما نسوزد:
+          </p>
+          <div class="backup-list">
+            
+                <div class="backup-item" data-size-pct="49.0800" data-price="0.355000">
+                  <div class="backup-top">
+                    <span class="backup-label">گزینه جایگزین 1: <strong class="ltr-num">Ethereum (ETH)</strong></span>
+                    <span class="backup-price">قیمت: <strong class="ltr-num">35.5¢</strong></span>
+                  </div>
+                  <div class="backup-bottom">
+                    <span>مبلغ خرید: <strong class="ltr-num backup-dollar js-backup-dollar">$491</strong> (<span class="ltr-num">49%</span> بودجه)</span>
+                    <span class="backup-return">دریافتی اگر این گزینه ببرد: <strong class="ltr-num js-backup-payout">$1383</strong></span>
+                  </div>
+                </div>
+                
+          </div>
+        </div>
+        
+      </div>
+
+      <details class="details-drawer">
+        <summary class="details-summary">
+          <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
+          <span class="summary-arrow">▼</span>
+        </summary>
+        <div class="details-body">
+          <div class="table-scroll">
+            <table class="clean-table">
+              <thead>
+                <tr>
+                  <th>نوع انتخاب</th>
+                  <th>گزینه</th>
+                  <th>قیمت هر سهم</th>
+                  <th>درصد از بودجه</th>
+                  <th>مبلغ دلاری</th>
+                  <th>تعداد سهام دریافتی</th>
+                  <th>سود/زیان خالص کل سبد</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr data-size-pct="50.9200" data-price="0.485000">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>Bitcoin (BTC)</strong></td>
+          <td class="ltr-num">48.5¢</td>
+          <td class="ltr-num">50.9%</td>
+          <td class="ltr-num js-row-dollar">$509</td>
+          <td class="ltr-num js-row-shares">1049.9 سهم</td>
+          <td class="ltr-num pos-text js-row-net">+$50</td>
+        </tr>
+        
+            <tr data-size-pct="49.0800" data-price="0.355000">
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
+              <td class="ltr-num"><strong>Ethereum (ETH)</strong></td>
+              <td class="ltr-num">35.5¢</td>
+              <td class="ltr-num">49.1%</td>
+              <td class="ltr-num js-row-dollar">$491</td>
+              <td class="ltr-num js-row-shares">1382.5 سهم</td>
+              <td class="ltr-num pos-text js-row-net">+$382</td>
+            </tr>
+            
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </article>
+    
   </section>
+
 </main>
 
-<!-- Kelly Criterion Interactive Modal -->
-<div id="kellyModal" class="modal-backdrop" onclick="if(event.target===this)closeKellyModal()">
-  <div class="modal-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1E293B;padding-bottom:0.75rem;margin-bottom:1rem">
-      <strong style="font-size:0.95rem">⚖️ شبیه‌ساز تعاملی فرمول کِلی (Fractional Kelly Simulator)</strong>
-      <button type="button" class="btn-action" onclick="closeKellyModal()">بستن ✕</button>
-    </div>
-    <div id="kellyModalTitle" dir="ltr" style="font-family:monospace;font-size:0.85rem;color:#34D399;margin-bottom:1rem"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
-      <label style="font-size:0.78rem;color:#94A3B8">
-        قیمت بازار (Market Price 0.01 - 0.99):
-        <input id="simPrice" type="number" step="0.01" min="0.01" max="0.99" class="search-input" style="width:100%;margin-top:0.3rem;direction:ltr" oninput="updateKellySim()">
-      </label>
-      <label style="font-size:0.78rem;color:#94A3B8">
-        احتمال واقعی مدل شما (Model Prob 0.01 - 0.99):
-        <input id="simProb" type="number" step="0.01" min="0.01" max="0.99" class="search-input" style="width:100%;margin-top:0.3rem;direction:ltr" oninput="updateKellySim()">
-      </label>
-    </div>
-    <div id="kellySimOutput" style="padding:1rem;background:#080C14;border:1px solid #1E293B;font-size:0.82rem;line-height:1.8"></div>
-  </div>
-</div>
-
 <script>
-let currentSection = 'all';
+let activeSection = 'all';
 
-function recalcBankroll() {
-  const bankroll = Math.max(1, parseFloat(document.getElementById('bankrollInput').value) || 1000);
-  document.querySelectorAll('tr[data-size-pct]').forEach(tr => {
-    const pct = parseFloat(tr.getAttribute('data-size-pct')) || 0;
-    const price = parseFloat(tr.getAttribute('data-price')) || 0;
-    const dollars = bankroll * (pct / 100.0);
-    const shares = price > 0 ? (dollars / price) : 0;
-    const dCell = tr.querySelector('.js-dollar-cell');
-    const sCell = tr.querySelector('.js-shares-cell');
-    if (dCell) dCell.textContent = '$' + dollars.toFixed(2);
-    if (sCell) sCell.textContent = shares.toFixed(1);
-  });
-  document.querySelectorAll('.js-primary-dollar').forEach(el => {
-    const pct = parseFloat(el.getAttribute('data-pct')) || 0;
-    el.textContent = '($' + Math.round(bankroll * (pct / 100.0)) + ')';
-  });
-}
-
-function setSectionFilter(btn) {
-  currentSection = btn.getAttribute('data-sec') || 'all';
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+function setCategory(btn) {
+  document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  activeSection = btn.getAttribute('data-sec') || 'all';
   applyFilters();
 }
 
 function applyFilters() {
   const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
   const sortBy = document.getElementById('sortSelect').value;
-  const hideTraps = document.getElementById('hideTrapsCheck').checked;
   const container = document.getElementById('cardsContainer');
-  const cards = Array.from(container.querySelectorAll('.market-card'));
+  const cards = Array.from(container.querySelectorAll('.signal-card'));
 
   cards.forEach(card => {
-    const sec = card.getAttribute('data-section');
-    const trap = card.getAttribute('data-trap') === '1';
-    const text = card.getAttribute('data-search') || '';
-    const matchSec = (currentSection === 'all' || sec === currentSection);
-    const matchTrap = (!hideTraps || !trap);
-    const matchQ = (!q || text.includes(q));
-    card.style.display = (matchSec && matchTrap && matchQ) ? '' : 'none';
+    const sec = card.getAttribute('data-section') || '';
+    const search = card.getAttribute('data-search') || '';
+    const okSec = (activeSection === 'all') || (sec === activeSection);
+    const okSearch = !q || search.includes(q);
+    card.style.display = (okSec && okSearch) ? '' : 'none';
   });
 
   cards.sort((a, b) => {
     if (sortBy === 'days') {
-      return (parseFloat(a.getAttribute('data-days')) || 0) - (parseFloat(b.getAttribute('data-days')) || 0);
+      return parseFloat(a.getAttribute('data-days') || '99') - parseFloat(b.getAttribute('data-days') || '99');
     }
-    const attr = sortBy === 'edge' ? 'data-edge' : (sortBy === 'roi' ? 'data-roi' : 'data-confidence');
-    return (parseFloat(b.getAttribute(attr)) || 0) - (parseFloat(a.getAttribute(attr)) || 0);
+    if (sortBy === 'roi') {
+      return parseFloat(b.getAttribute('data-roi') || '0') - parseFloat(a.getAttribute('data-roi') || '0');
+    }
+    return parseFloat(b.getAttribute('data-prob') || '0') - parseFloat(a.getAttribute('data-prob') || '0');
   });
 
   cards.forEach(c => container.appendChild(c));
 }
 
-function openKellyModal(btn) {
-  const data = JSON.parse(btn.getAttribute('data-sim') || '{}');
-  document.getElementById('kellyModalTitle').textContent = data.title + ' — ' + data.primaryOutcome;
-  const p = Number(data.primaryPrice || 0.5);
-  const edge = Math.max(0.03, Number(data.edge || 0.05));
-  document.getElementById('simPrice').value = p.toFixed(2);
-  document.getElementById('simProb').value = Math.min(0.99, p + edge).toFixed(2);
-  updateKellySim();
-  document.getElementById('kellyModal').classList.add('open');
-}
+function recalcBankroll() {
+  const raw = parseFloat(document.getElementById('bankrollInput').value || '1000');
+  const bankroll = (!isNaN(raw) && raw > 0) ? raw : 1000;
 
-function closeKellyModal() {
-  document.getElementById('kellyModal').classList.remove('open');
-}
+  document.querySelectorAll('.plan-primary').forEach(box => {
+    const pct = parseFloat(box.getAttribute('data-primary-pct') || '0');
+    const roi = parseFloat(box.getAttribute('data-primary-roi') || '0');
+    const dollar = Math.round(bankroll * (pct / 100.0));
+    const profit = Math.round(bankroll * (roi / 100.0));
 
-function updateKellySim() {
-  const price = Math.min(0.99, Math.max(0.01, parseFloat(document.getElementById('simPrice').value) || 0.5));
-  const prob = Math.min(0.99, Math.max(0.01, parseFloat(document.getElementById('simProb').value) || 0.55));
-  const b = (1.0 - price) / price;
-  const fullKelly = Math.max(0, (prob * (b + 1) - 1) / b);
-  const quarterKelly = fullKelly * 0.25;
-  const bankroll = Math.max(1, parseFloat(document.getElementById('bankrollInput').value) || 1000);
-  document.getElementById('kellySimOutput').innerHTML =
-    '<div>ضریب پرداخت خالص (Net Odds b): <strong class="ltr-inline">' + b.toFixed(2) + 'x</strong></div>' +
-    '<div>سهم کِلی کامل (Full Kelly): <strong class="ltr-inline">' + (fullKelly * 100).toFixed(1) + '%</strong></div>' +
-    '<div>سهم کِلی کسری پیشنهادی (0.25x Fractional Kelly): <strong class="ltr-inline pos">' + (quarterKelly * 100).toFixed(1) + '% ($' + (bankroll * quarterKelly).toFixed(0) + ')</strong></div>';
-}
+    const dollarEl = box.querySelector('.js-primary-dollar');
+    const profitEl = box.querySelector('.js-primary-profit');
+    if (dollarEl) dollarEl.textContent = '$' + dollar.toLocaleString();
+    if (profitEl) {
+      profitEl.textContent = (profit >= 0 ? '+$' : '-$') + Math.abs(profit).toLocaleString();
+    }
+  });
 
-const AI_WORKER_URL = "https://polybet-ai-research.ericlamar008.workers.dev/";
-async function runAiAnalysis(btn) {
-  const market = JSON.parse(btn.getAttribute('data-market'));
-  const resultDiv = document.getElementById('ai-result-' + market.market_id);
-  resultDiv.innerHTML = 'در حال دریافت تحلیل کوانت از ورکر هوش مصنوعی...';
-  btn.disabled = true;
-  try {
-    const resp = await fetch(AI_WORKER_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(market)
-    });
-    const data = await resp.json();
-    if (data.error) { resultDiv.innerHTML = '⚠️ ' + data.error; return; }
-    resultDiv.innerHTML =
-      '<div><strong>جمع‌بندی تحلیل هوش مصنوعی:</strong> ' + (data.summary || '—') + '</div>' +
-      '<div style="margin-top:0.35rem;color:#34D399"><strong>سطح اطمینان:</strong> ' + (data.confidence || '—') + '</div>';
-  } catch (e) {
-    resultDiv.innerHTML = '⚠️ خطا در ارتباط با سرویس تحلیل: ' + e.message;
-  } finally {
-    btn.disabled = false;
-  }
+  document.querySelectorAll('.backup-item').forEach(item => {
+    const pct = parseFloat(item.getAttribute('data-size-pct') || '0');
+    const price = parseFloat(item.getAttribute('data-price') || '0.5');
+    const dollar = Math.round(bankroll * (pct / 100.0));
+    const payout = price > 0 ? Math.round((bankroll * (pct / 100.0)) / price) : 0;
+
+    const dEl = item.querySelector('.js-backup-dollar');
+    const pEl = item.querySelector('.js-backup-payout');
+    if (dEl) dEl.textContent = '$' + dollar.toLocaleString();
+    if (pEl) pEl.textContent = '$' + payout.toLocaleString();
+  });
+
+  document.querySelectorAll('tr[data-size-pct]').forEach(row => {
+    const pct = parseFloat(row.getAttribute('data-size-pct') || '0');
+    const price = parseFloat(row.getAttribute('data-price') || '0.5');
+    const dollar = bankroll * (pct / 100.0);
+    const shares = price > 0 ? (dollar / price) : 0;
+    const netDollar = Math.round(shares - bankroll);
+
+    const dCell = row.querySelector('.js-row-dollar');
+    const sCell = row.querySelector('.js-row-shares');
+    const nCell = row.querySelector('.js-row-net');
+    if (dCell) dCell.textContent = '$' + Math.round(dollar).toLocaleString();
+    if (sCell) sCell.textContent = shares.toFixed(1) + ' سهم';
+    if (nCell) nCell.textContent = (netDollar >= 0 ? '+$' : '-$') + Math.abs(netDollar).toLocaleString();
+  });
 }
 </script>
 </body>

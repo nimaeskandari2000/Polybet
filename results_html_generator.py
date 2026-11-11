@@ -71,12 +71,15 @@ def generate_results_html(
     resolved_rows: list[dict],
     output_path: str = "docs/results.html",
     log_csv_path: str = "predictions_log.csv",
+    generated_at: datetime | None = None,
+    log_by_key: dict[str, dict] | None = None,
 ) -> str:
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    ts = generated_at or datetime.now(timezone.utc)
+    now_str = ts.strftime("%Y-%m-%d %H:%M UTC")
 
-    log_by_group: dict[str, dict] = {}
-    if os.path.exists(log_csv_path):
+    log_by_group: dict[str, dict] = dict(log_by_key) if log_by_key else {}
+    if not log_by_group and os.path.exists(log_csv_path):
         try:
             with open(log_csv_path, "r", encoding="utf-8") as f:
                 for r in csv.DictReader(f):
@@ -447,3 +450,19 @@ function filterRows() {{
         f.write(doc)
 
     return output_path
+
+
+def write_results_html(
+    output_path: str,
+    resolved_rows: list[dict],
+    generated_at: datetime | None = None,
+    log_by_key: dict[str, dict] | None = None,
+) -> str:
+    """Primary entry point called by weekly_report.py."""
+    return generate_results_html(
+        resolved_rows=resolved_rows,
+        output_path=output_path,
+        generated_at=generated_at,
+        log_by_key=log_by_key,
+    )
+

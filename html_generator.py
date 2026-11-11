@@ -8,16 +8,12 @@ designed for instant comprehension without confusing quant jargon or cluttered t
 from __future__ import annotations
 
 import html
-import json
 import os
 import re
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from position_logic import PositionPlan
-
-if TYPE_CHECKING:
-    from scanner import MarketOpportunity
 
 
 CATEGORY_META: dict[str, tuple[str, str, str]] = {
@@ -54,36 +50,51 @@ def _format_time_left_fa(days: float) -> str:
     return f"{days:.1f} روز مانده"
 
 
-def _compute_confidence(plan: PositionPlan, primary_price: float) -> float:
-    if plan.num_sources > 0 and plan.consensus_score > 0:
-        k = 1.5
-        weight = plan.num_sources / (plan.num_sources + k)
-        return round(min(99.0, max(15.0, plan.consensus_score * weight)), 1)
-    return round(min(98.0, max(35.0, primary_price * 100.0)), 1)
+def _normalize_entry(item: Any) -> tuple[str, str, str, PositionPlan, float]:
+    """
+    Support both:
+    - 4-tuple from main.py: (representative, title, plan, days_to_resolve)
+    - 2-tuple from tests/helpers: (opp, plan)
+    Returns: (title, category, market_url, plan, days_to_resolve)
+    """
+    if isinstance(item, (tuple, list)) and len(item) == 4:
+        rep, title, plan, days = item
+        category = getattr(rep, "category", "elections") or "elections"
+        market_url = getattr(rep, "url", "") or getattr(rep, "market_url", "") or "https://polymarket.com"
+        resolved_title = str(title or getattr(rep, "question", "") or getattr(plan, "question", ""))
+        return resolved_title, category, market_url, plan, float(days or 0.0)
+
+    if isinstance(item, (tuple, list)) and len(item) == 2:
+        opp, plan = item
+        category = getattr(opp, "category", "elections") or "elections"
+        market_url = (
+            getattr(opp, "market_url", "")
+            or getattr(opp, "url", "")
+            or getattr(opp, "group_key", "")
+            or "https://polymarket.com"
+        )
+        resolved_title = str(getattr(opp, "title", "") or getattr(opp, "question", "") or getattr(plan, "question", ""))
+        days = float(getattr(opp, "days_to_resolve", 1.0) or 1.0)
+        return resolved_title, category, market_url, plan, days
+
+    raise ValueError(f"Unsupported opportunity tuple format: {type(item)}")
 
 
-def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: float = 1000.0) -> str:
+def _render_card(
+    title: str,
+    category: str,
+    market_url: str,
+    plan: PositionPlan,
+    days_to_resolve: float,
+    default_bankroll: float = 1000.0,
+) -> str:
     cat_label, section_key, cat_color = CATEGORY_META.get(
-        opp.category, ("📌 بازار پیش‌بینی", "politics", "#38BDF8")
+        category, ("📌 بازار پیش‌بینی", "politics", "#38BDF8")
     )
     primary = plan.primary
     primary_outcome = primary.outcome if primary else "—"
     primary_price = (primary.market_price or 0.5) if primary else 0.5
     primary_size_pct = primary.size_pct if primary else 0.0
-    primary_dollar = round(default_bankroll * (primary_size_pct / 100.0))
-
-    total_committed_pct = sum(a.size_pct for a in plan.allocations) or 100.0
-    primary_gross_pct = (primary_size_pct / primary_price) if primary_price > 0 else 0.0
-    primary_net_roi_pct = round(primary_gross_pct - total_committed_pct, 1)
-    primary_net_profit_dollar = round(default_bankroll * (primary_net_roi_pct / 100.0))
-
-    win_prob_pct = round(primary_price * 100.0, 1)
-    confidence = _compute_confidence(plan, primary_price)
-    time_left_fa = _format_time_left_fa(opp.days_to_resolve)
-
-    hit_q = bool(re.search(r"\bwhat (?:price )?will .* hit\b", (opp.title or "").lower()))
-    arrow_o = bool(re.match(r"^[↑↓]\s*\$?[\d,.]+", primary_outcome.strip()))
-    is_trap = (hit_q or arrow_o) and primary_price < 0.15
 
     # Filter backup legs (exclude micro-tail options < 4 cents so the user is never confused)
     backup_legs = [
@@ -91,8 +102,28 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
         if a.role != "primary" and (a.market_price or 0.0) >= 0.04 and a.size_pct >= 1.5
     ][:2]
 
+    # If primary is >= 88c or no viable backup legs remain, display as 100% solo primary
+    if primary_price >= 0.88 or not backup_legs:
+        primary_size_pct = 100.0
+        backup_legs = []
+
+    primary_dollar = round(default_bankroll * (primary_size_pct / 100.0))
+    total_committed_pct = primary_size_pct + sum(b.size_pct for b in backup_legs)
+    if total_committed_pct <= 0:
+        total_committed_pct = 100.0
+
+    primary_gross_pct = (primary_size_pct / primary_price) if primary_price > 0 else 0.0
+    primary_net_roi_pct = round(primary_gross_pct - total_committed_pct, 1)
+    primary_net_profit_dollar = round(default_bankroll * (primary_net_roi_pct / 100.0))
+
+    win_prob_pct = round(primary_price * 100.0, 1)
+    time_left_fa = _format_time_left_fa(days_to_resolve)
+
+    hit_q = bool(re.search(r"\bwhat (?:price )?will .* hit\b", (title or "").lower()))
+    arrow_o = bool(re.match(r"^[↑↓]\s*\$?[\d,.]+", primary_outcome.strip()))
+    is_trap = (hit_q or arrow_o) and primary_price < 0.15
+
     if not backup_legs:
-        # Clean solo primary view
         backup_html = f"""
         <div class="plan-box plan-solo">
           <div class="plan-box-header">
@@ -100,7 +131,7 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
           </div>
           <div class="solo-text">
             <strong>نیاز به خرید گزینه کمکی ندارد.</strong>
-            شانس برد گزینه اصلی بسیار بالاست (<span class="ltr-num">{win_prob_pct:.1f}%</span>)؛ بنابراین کل بودجه این معامله فقط روی همان گزینه اصلی قرار می‌گیرد.
+            شانس برد گزینه اصلی بالا است (<span class="ltr-num">{win_prob_pct:.1f}%</span>)؛ بنابراین کل بودجه این معامله فقط روی همان گزینه اصلی قرار می‌گیرد تا سود شما کم نشود.
           </div>
         </div>
         """
@@ -139,26 +170,38 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
         </div>
         """
 
-    # Details rows (only Primary + viable backups)
-    visible_allocs = ([primary] if primary else []) + backup_legs
     detail_rows_html = []
-    for a in visible_allocs:
-        if not a:
-            continue
+    # Primary row
+    p_d_val = round(default_bankroll * (primary_size_pct / 100.0), 1)
+    p_shares = (p_d_val / primary_price) if primary_price > 0 else 0.0
+    p_net = round(p_shares - default_bankroll, 1)
+    p_net_cls = "pos-text" if p_net >= 0 else "neg-text"
+    p_net_str = f"+${p_net:.0f}" if p_net >= 0 else f"-${abs(p_net):.0f}"
+    detail_rows_html.append(
+        f"""
+        <tr data-size-pct="{primary_size_pct:.4f}" data-price="{primary_price:.6f}">
+          <td><span class="mini-badge badge-green">گزینه اصلی خرید</span></td>
+          <td class="ltr-num"><strong>{_esc(primary_outcome)}</strong></td>
+          <td class="ltr-num">{primary_price * 100:.1f}¢</td>
+          <td class="ltr-num">{primary_size_pct:.1f}%</td>
+          <td class="ltr-num js-row-dollar">${p_d_val:.0f}</td>
+          <td class="ltr-num js-row-shares">{p_shares:.1f} سهم</td>
+          <td class="ltr-num {p_net_cls} js-row-net">{p_net_str}</td>
+        </tr>
+        """
+    )
+
+    for a in backup_legs:
         p_val = a.market_price or 0.5
         d_val = round(default_bankroll * (a.size_pct / 100.0), 1)
         shares_val = (d_val / p_val) if p_val > 0 else 0.0
-        payout_val = round(shares_val, 1)
-        net_dollar = round(payout_val - default_bankroll, 1)
-        role_fa = "گزینه اصلی (Primary)" if a.role == "primary" else "پوشش ریسک (بیمه)"
-        role_cls = "badge-green" if a.role == "primary" else "badge-blue"
+        net_dollar = round(shares_val - default_bankroll, 1)
         net_cls = "pos-text" if net_dollar >= 0 else "neg-text"
         net_str = f"+${net_dollar:.0f}" if net_dollar >= 0 else f"-${abs(net_dollar):.0f}"
-
         detail_rows_html.append(
             f"""
             <tr data-size-pct="{a.size_pct:.4f}" data-price="{p_val:.6f}">
-              <td><span class="mini-badge {role_cls}">{role_fa}</span></td>
+              <td><span class="mini-badge badge-blue">پوشش ریسک (بیمه)</span></td>
               <td class="ltr-num"><strong>{_esc(a.outcome)}</strong></td>
               <td class="ltr-num">{p_val * 100:.1f}¢</td>
               <td class="ltr-num">{a.size_pct:.1f}%</td>
@@ -169,7 +212,7 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
             """
         )
 
-    market_url = _esc(opp.market_url or opp.group_key or "https://polymarket.com")
+    safe_url = _esc(market_url or "https://polymarket.com")
     profit_sign = "+" if primary_net_profit_dollar >= 0 else "-"
     profit_abs = abs(primary_net_profit_dollar)
     roi_sign = "+" if primary_net_roi_pct >= 0 else ""
@@ -180,24 +223,21 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
       data-trap="{'1' if is_trap else '0'}"
       data-prob="{win_prob_pct:.2f}"
       data-roi="{primary_net_roi_pct:.2f}"
-      data-days="{opp.days_to_resolve:.2f}"
-      data-search="{_esc((opp.title + ' ' + primary_outcome + ' ' + cat_label).lower())}">
+      data-days="{days_to_resolve:.2f}"
+      data-search="{_esc((title + ' ' + primary_outcome + ' ' + cat_label).lower())}">
 
-      <!-- Card Top Bar -->
       <div class="card-top">
         <div class="card-badges">
           <span class="cat-pill" style="border-color:{cat_color}44;color:{cat_color}">{_esc(cat_label)}</span>
           <span class="time-pill">⏳ {_esc(time_left_fa)}</span>
         </div>
-        <a class="poly-btn" href="{market_url}" target="_blank" rel="noopener">
+        <a class="poly-btn" href="{safe_url}" target="_blank" rel="noopener">
           ورود به بازار در Polymarket ↗
         </a>
       </div>
 
-      <!-- Market Question -->
-      <h2 class="market-title" dir="ltr">{_esc(opp.title)}</h2>
+      <h2 class="market-title" dir="ltr">{_esc(title)}</h2>
 
-      <!-- Probability Visual Bar -->
       <div class="prob-bar-wrap">
         <div class="prob-bar-labels">
           <span>شانس برد گزینه پیشنهادی (بر اساس قیمت لحظه‌ای بازار)</span>
@@ -208,9 +248,7 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
         </div>
       </div>
 
-      <!-- Two-Box Clear Action Plan -->
       <div class="plan-grid">
-        <!-- Box 1: Primary Action -->
         <div class="plan-box plan-primary" data-primary-pct="{primary_size_pct:.4f}" data-primary-roi="{primary_net_roi_pct:.4f}">
           <div class="plan-box-header">
             <span class="step-pill pill-primary">گام ۱ · پیشنهاد اصلی خرید</span>
@@ -236,11 +274,9 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
           </div>
         </div>
 
-        <!-- Box 2: Backup / Insurance -->
         {backup_html}
       </div>
 
-      <!-- Expandable Details Drawer (Hidden by Default to Avoid Clutter) -->
       <details class="details-drawer">
         <summary class="details-summary">
           <span>📋 مشاهده جدول دقیق تعداد سهام و جزئیات محاسبه</span>
@@ -271,21 +307,29 @@ def _render_card(opp: MarketOpportunity, plan: PositionPlan, default_bankroll: f
     """
 
 
-def generate_html(
-    opportunities: list[tuple[MarketOpportunity, PositionPlan]],
-    output_path: str = "docs/index.html",
+def write_html(
+    output_path: str,
+    results: list[Any],
+    generated_at: datetime | None = None,
 ) -> str:
+    """
+    Primary entry point called by `main.py`:
+      write_html(DOCS_HTML_PATH, html_results, generated_at=now_utc)
+    """
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    ts = generated_at or datetime.now(timezone.utc)
+    now_str = ts.strftime("%Y-%m-%d %H:%M UTC")
 
     cards_html = []
     high_prob_count = 0
-    for opp, plan in opportunities:
+    for item in results:
+        title, category, market_url, plan, days_to_resolve = _normalize_entry(item)
         p = plan.primary
         if p and (p.market_price or 0.0) >= 0.80:
             high_prob_count += 1
-        cards_html.append(_render_card(opp, plan))
+        cards_html.append(_render_card(title, category, market_url, plan, days_to_resolve))
 
+    total_count = len(cards_html)
     cards_joined = (
         "\n".join(cards_html)
         if cards_html
@@ -315,7 +359,6 @@ body {{
 a {{ color: inherit; text-decoration: none; }}
 .ltr-num {{ direction: ltr; display: inline-block; font-family: 'Vazirmatn', monospace; font-feature-settings: "tnum"; }}
 
-/* Top Navigation Header */
 .navbar {{
   position: sticky;
   top: 0;
@@ -370,7 +413,6 @@ a {{ color: inherit; text-decoration: none; }}
 
 .main-wrap {{ max-width: 1180px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }}
 
-/* 3-Step Visual Guide Banner */
 .guide-banner {{
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
   border: 1px solid rgba(16, 185, 129, 0.28);
@@ -402,7 +444,6 @@ a {{ color: inherit; text-decoration: none; }}
 }}
 .guide-step strong {{ color: #FFFFFF; display: block; margin-bottom: 0.2rem; font-size: 0.88rem; }}
 
-/* Top Controls & Bankroll Calculator */
 .dashboard-bar {{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -447,7 +488,6 @@ a {{ color: inherit; text-decoration: none; }}
 }}
 .bankroll-input:focus {{ outline: none; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); }}
 
-/* Filter & Search Bar */
 .filter-bar {{
   background: rgba(15, 23, 42, 0.8);
   border: 1px solid rgba(148, 163, 184, 0.15);
@@ -499,7 +539,6 @@ a {{ color: inherit; text-decoration: none; }}
   font-family: inherit;
 }}
 
-/* Market Signal Card */
 .signal-card {{
   background: rgba(15, 23, 42, 0.9);
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -509,9 +548,7 @@ a {{ color: inherit; text-decoration: none; }}
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
   transition: transform 0.15s ease, border-color 0.15s ease;
 }}
-.signal-card:hover {{
-  border-color: rgba(56, 189, 248, 0.4);
-}}
+.signal-card:hover {{ border-color: rgba(56, 189, 248, 0.4); }}
 .card-top {{
   display: flex;
   flex-wrap: wrap;
@@ -559,7 +596,6 @@ a {{ color: inherit; text-decoration: none; }}
   letter-spacing: -0.01em;
 }}
 
-/* Probability Bar */
 .prob-bar-wrap {{
   background: rgba(9, 14, 26, 0.65);
   border: 1px solid rgba(148, 163, 184, 0.12);
@@ -589,7 +625,6 @@ a {{ color: inherit; text-decoration: none; }}
   border-radius: 999px;
 }}
 
-/* Two-Column Action Plan Grid */
 .plan-grid {{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -716,7 +751,6 @@ a {{ color: inherit; text-decoration: none; }}
 .backup-dollar {{ color: #38BDF8; font-size: 0.92rem; }}
 .backup-return strong {{ color: #E2E8F0; }}
 
-/* Collapsible Details Drawer */
 .details-drawer {{
   margin-top: 1rem;
   border-top: 1px solid rgba(148, 163, 184, 0.12);
@@ -788,7 +822,7 @@ a {{ color: inherit; text-decoration: none; }}
       </div>
     </div>
     <nav class="nav-pills">
-      <a class="nav-link active" href="index.html">📡 پیشنهادهای امروز ({len(opportunities)})</a>
+      <a class="nav-link active" href="index.html">📡 پیشنهادهای امروز ({total_count})</a>
       <a class="nav-link" href="results.html">🏆 کارنامه و نتایج قبلی</a>
     </nav>
   </div>
@@ -796,7 +830,6 @@ a {{ color: inherit; text-decoration: none; }}
 
 <main class="main-wrap">
 
-  <!-- Simple 3-Step Visual Guide -->
   <section class="guide-banner">
     <div class="guide-title">💡 راهنمای سریع (در ۳ قدم ساده):</div>
     <div class="guide-steps">
@@ -815,7 +848,6 @@ a {{ color: inherit; text-decoration: none; }}
     </div>
   </section>
 
-  <!-- Summary & Live Money Calculator -->
   <section class="dashboard-bar">
     <div class="stat-card stat-card-highlight">
       <div class="stat-label">💰 سرمایه شما برای هر بازار (دلار $)</div>
@@ -828,7 +860,7 @@ a {{ color: inherit; text-decoration: none; }}
 
     <div class="stat-card">
       <div class="stat-label">📊 تعداد موقعیت‌های آماده معامله</div>
-      <div class="stat-val ltr-num">{len(opportunities)}</div>
+      <div class="stat-val ltr-num">{total_count}</div>
       <div class="stat-hint">بازارهای نزدیک به اعلام نتیجه (کمتر از ۷ روز)</div>
     </div>
 
@@ -839,10 +871,9 @@ a {{ color: inherit; text-decoration: none; }}
     </div>
   </section>
 
-  <!-- Category Tabs & Search -->
   <section class="filter-bar">
     <div class="cat-tabs">
-      <button type="button" class="cat-tab active" data-sec="all" onclick="setCategory(this)">همه بازارها ({len(opportunities)})</button>
+      <button type="button" class="cat-tab active" data-sec="all" onclick="setCategory(this)">همه بازارها ({total_count})</button>
       <button type="button" class="cat-tab" data-sec="economy" onclick="setCategory(this)">📊 اقتصاد و تورم</button>
       <button type="button" class="cat-tab" data-sec="markets" onclick="setCategory(this)">📈 سهام و رمزارز</button>
       <button type="button" class="cat-tab" data-sec="politics" onclick="setCategory(this)">🗳️ سیاست و انتخابات</button>
@@ -858,7 +889,6 @@ a {{ color: inherit; text-decoration: none; }}
     </div>
   </section>
 
-  <!-- Cards List -->
   <section id="cardsContainer">
     {cards_joined}
   </section>
@@ -906,7 +936,6 @@ function recalcBankroll() {{
   const raw = parseFloat(document.getElementById('bankrollInput').value || '1000');
   const bankroll = (!isNaN(raw) && raw > 0) ? raw : 1000;
 
-  // Update Primary Boxes
   document.querySelectorAll('.plan-primary').forEach(box => {{
     const pct = parseFloat(box.getAttribute('data-primary-pct') || '0');
     const roi = parseFloat(box.getAttribute('data-primary-roi') || '0');
@@ -921,7 +950,6 @@ function recalcBankroll() {{
     }}
   }});
 
-  // Update Backup Items
   document.querySelectorAll('.backup-item').forEach(item => {{
     const pct = parseFloat(item.getAttribute('data-size-pct') || '0');
     const price = parseFloat(item.getAttribute('data-price') || '0.5');
@@ -934,7 +962,6 @@ function recalcBankroll() {{
     if (pEl) pEl.textContent = '$' + payout.toLocaleString();
   }});
 
-  // Update Expandable Details Rows
   document.querySelectorAll('tr[data-size-pct]').forEach(row => {{
     const pct = parseFloat(row.getAttribute('data-size-pct') || '0');
     const price = parseFloat(row.getAttribute('data-price') || '0.5');
@@ -959,3 +986,11 @@ function recalcBankroll() {{
         f.write(doc)
 
     return output_path
+
+
+def generate_html(
+    opportunities: list[Any],
+    output_path: str = "docs/index.html",
+) -> str:
+    """Alias for backwards compatibility."""
+    return write_html(output_path, opportunities)

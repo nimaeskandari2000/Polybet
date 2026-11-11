@@ -65,25 +65,33 @@ jobs:
           REBUILD_RESOLVED_CACHE: ${{ inputs.rebuild_cache || 'false' }}
         run: python weekly_report.py --prepare-telegram /tmp/polybet_weekly_msg.txt
 
-      - name: Commit & push updated resolution cache + unique results snapshot
+      - name: Commit & push updated resolution cache to GitHub (conflict-free)
         run: |
           git config user.name "polybet-bot"
           git config user.email "polybet-bot@users.noreply.github.com"
+          mkdir -p /tmp/polybet_weekly_sync/docs
+          cp -f docs/results.html /tmp/polybet_weekly_sync/docs/results.html 2>/dev/null || true
+          cp -f predictions_resolved.csv /tmp/polybet_weekly_sync/predictions_resolved.csv 2>/dev/null || true
+          git fetch origin
+          git reset --hard "origin/${GITHUB_REF_NAME:-main}" || true
+          rm -rf docs/scans
+          mkdir -p docs
+          cp -f /tmp/polybet_weekly_sync/docs/results.html docs/results.html 2>/dev/null || true
+          cp -f /tmp/polybet_weekly_sync/predictions_resolved.csv predictions_resolved.csv 2>/dev/null || true
           git add predictions_resolved.csv docs/
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "Report run ($TRIGGER_SOURCE): $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git pull --rebase --autostash origin HEAD
-            git push
+            git push origin "HEAD:${GITHUB_REF_NAME:-main}"
           fi
 
-      - name: Send Telegram weekly report with unique live GitHub link
+      - name: Send Telegram weekly report with single GitHub Pages link
         if: always()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           if [ -f /tmp/polybet_weekly_msg.txt ]; then
-            python weekly_report.py --send-prepared /tmp/polybet_weekly_msg.txt
+            python weekly_report.py --send-prepared /tmp/polybet_weekly_msg.txt || true
           fi

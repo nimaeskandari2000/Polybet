@@ -279,18 +279,22 @@ def _parse_ts(value: str) -> datetime | None:
 
 
 def build_weekly_stats(resolved_rows: list[dict], since: datetime) -> dict:
-    this_week = [r for r in resolved_rows if _parse_ts(r["logged_at_utc"]) and _parse_ts(r["logged_at_utc"]) >= since]
+    this_week = [
+        r for r in resolved_rows
+        if _parse_ts(r.get("logged_at_utc", "")) and _parse_ts(r.get("logged_at_utc", "")) >= since
+    ]
     target_rows = this_week if this_week else resolved_rows
     total = len(target_rows)
-    decided = [r for r in target_rows if r["is_correct"] in ("True", "False")]
-    correct = [r for r in decided if r["is_correct"] == "True"]
+    decided = [r for r in target_rows if r.get("is_correct") in ("True", "False")]
+    correct = [r for r in decided if r.get("is_correct") == "True"]
     pending = total - len(decided)
 
     by_category: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     for r in decided:
-        by_category[r["category"]][1] += 1
-        if r["is_correct"] == "True":
-            by_category[r["category"]][0] += 1
+        cat = r.get("category") or "other"
+        by_category[cat][1] += 1
+        if r.get("is_correct") == "True":
+            by_category[cat][0] += 1
 
     return {
         "total": total,

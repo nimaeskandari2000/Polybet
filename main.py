@@ -161,9 +161,28 @@ def contextualize_warning(category: str, warning: str | None) -> str | None:
     return warning + f" ({category} API/.env؟)"
 
 
+def _ensure_csv_header(path: str) -> None:
+    """Ensure predictions_log.csv has the header row even if created as a 0-byte empty file."""
+    if not os.path.isfile(path) or os.path.getsize(path) == 0:
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=PREDICTIONS_LOG_FIELDS)
+            writer.writeheader()
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            first_line = f.readline().strip()
+        if first_line and not first_line.startswith("logged_at_utc"):
+            with open(path, "r", encoding="utf-8") as f:
+                existing_content = f.read()
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                f.write(",".join(PREDICTIONS_LOG_FIELDS) + "\n" + existing_content)
+    except OSError:
+        pass
+
+
 def _already_logged_today(path: str, group_key: str, today_prefix: str) -> bool:
     """Prevent duplicate rows if daily_scan.yml retries python main.py on the same day."""
-    if not os.path.isfile(path):
+    if not os.path.isfile(path) or os.path.getsize(path) == 0:
         return False
     try:
         with open(path, newline="", encoding="utf-8") as f:
@@ -179,13 +198,13 @@ def append_prediction_log(
     group_key: str, title: str, category: str, days_to_resolve: float,
     plan: PositionPlan, market_url: str, path: str = PREDICTIONS_LOG_PATH,
 ) -> None:
+    _ensure_csv_header(path)
     now_iso = datetime.now(timezone.utc).isoformat()
     today_prefix = now_iso[:10]
     if _already_logged_today(path, group_key, today_prefix):
         logger.info("Skipping duplicate same-day log entry for %s", group_key)
         return
 
-    file_exists = os.path.isfile(path)
     non_primary = [a for a in plan.allocations if a.role != "primary"]
     hedge_summary = "; ".join(f"{a.role}:{a.outcome}={a.size_pct:.1f}%" for a in non_primary)
     row = {
@@ -206,8 +225,6 @@ def append_prediction_log(
     }
     with open(path, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=PREDICTIONS_LOG_FIELDS)
-        if not file_exists:
-            writer.writeheader()
         writer.writerow(row)
 
 
