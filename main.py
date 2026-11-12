@@ -259,7 +259,7 @@ def _should_dry_run(explicit_dry_run: bool | None) -> bool:
     return not has_creds
 
 
-def run(window_days: float = 7.0, dry_run: bool | None = None, prepare_telegram_path: str | None = None) -> list[str]:
+def run(window_days: float = 21.0, dry_run: bool | None = None, prepare_telegram_path: str | None = None) -> list[str]:
     load_dotenv()
     dry_run = _should_dry_run(dry_run)
     now_utc = datetime.now(timezone.utc)

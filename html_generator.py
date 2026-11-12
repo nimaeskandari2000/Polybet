@@ -395,45 +395,49 @@ button {{ font-family: inherit; cursor: pointer; }}
 .header-inner {{
   max-width: 1140px;
   margin: 0 auto;
-  padding: 0.85rem 1.25rem;
+  padding: 0.75rem 1rem;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.65rem;
 }}
 .brand {{
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 1rem;
+  white-space: nowrap;
 }}
 .brand-logo {{
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   background: linear-gradient(135deg, #10B981, #4F46E5);
   color: #052E16;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 900;
+  flex-shrink: 0;
 }}
 .nav {{
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   background: #0B0F19;
   padding: 0.25rem;
   border-radius: 12px;
   border: 1px solid #1E293B;
 }}
 .nav-btn {{
-  padding: 0.45rem 0.95rem;
+  padding: 0.4rem 0.75rem;
   border-radius: 9px;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: #94A3B8;
+  white-space: nowrap;
 }}
 .nav-btn.active {{
   background: #10B981;

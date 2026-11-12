@@ -1,18 +1,15 @@
 """
-scanner.py — PolyBet v2.0 Market Scanner & Disambiguated Classifier.
+scanner.py — PolyBet v2.0 Deep Multi-Pass Market Scanner & Classifier.
 
-REPLACES your current scanner.py.
-
-KEY FIXES IN THIS VERSION:
-1. FIX BUG #3 ("bailey" -> Bank of England misclassification):
-   Replaced bare surname `"bailey"` with `"andrew bailey"`, `"boe decision"`,
-   `"mpc vote"` so US election candidates (Melissa Bailey in NH-01) and NFL
-   players (Bailey Zappe in Jets Starting QB) are never classified as `boe`.
-2. Added `"pro football"`, `"starting qb"`, `"touchdown"`, `"premier league"`,
-   `"serie a"`, `"la liga"` to `SPORTS_SIGNALS` so sports props never leak in.
-3. Fixed `resolve_group_metadata`: only sets `group_label` from `groupItemTitle`
-   (never copying the full binary question into `group_label`), preventing single
-   binary markets from masquerading as multi-candidate groups.
+UPGRADES IN THIS VERSION:
+1. Deep 3-Pass Polymarket Gamma Scan:
+   - Pass 1: Top active markets ordered by 24h Volume (`order=volume24hr&ascending=false`)
+   - Pass 2: Top active markets ordered by Liquidity (`order=liquidityNum&ascending=false`)
+   - Pass 3: Date-window sweep (`end_date_min` .. `end_date_max`)
+   This avoids Polymarket's offset=2100 HTTP 422 wall where un-ordered queries returned
+   98% low-volume soccer props and missed major Fed, CPI, Stocks, and Crypto markets.
+2. Filters out 5-minute/15-minute "Up or Down" coin-flip noise and dead ($0 volume) markets.
+3. Expands default resolve window to 21 days so flagship Fed/CPI/Earnings events are included.
 """
 
 from __future__ import annotations
@@ -31,19 +28,20 @@ logger = logging.getLogger(__name__)
 
 GAMMA_API_BASE = "https://gamma-api.polymarket.com"
 MARKETS_ENDPOINT = f"{GAMMA_API_BASE}/markets"
-DEFAULT_RESOLVE_WINDOW_DAYS = 7
+DEFAULT_RESOLVE_WINDOW_DAYS = 21
 DEFAULT_PAGE_LIMIT = 100
-DEFAULT_MAX_PAGES = 300
+DEFAULT_MAX_PAGES = 15
 REQUEST_TIMEOUT_SECONDS = 15
 MAX_FETCH_RETRIES = 3
 RETRY_BACKOFF_BASE_SECONDS = 2
+MIN_MARKET_VOLUME_USD = 300.0
 
 CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "fed": ("fed", "federal reserve", "fomc", "jerome powell", "fed rate"),
+    "fed": ("fed", "federal reserve", "fomc", "jerome powell", "fed rate", "interest rate", "rate cut", "rate hike"),
     "cpi": ("cpi", "inflation", "consumer price index"),
     "pce": ("pce", "personal consumption expenditures", "core pce"),
     "employment": ("unemployment", "nonfarm", "payroll", "jobs report", "jobless"),
-    "gdp": ("gdp", "gross domestic product", "recession"),
+    "gdp": ("gdp", "gross domestic product", "recession", "economic growth"),
     "ecb": ("ecb", "european central bank", "christine lagarde", "eurozone rate"),
     "boc": ("bank of canada", "boc rate", "boc decision", "tiff macklem"),
     "boe": ("bank of england", "boe rate", "boe decision", "mpc vote", "andrew bailey"),
@@ -53,43 +51,21 @@ CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "swiss national bank", "pboc", "people's bank of china",
         "bank of mexico", "banxico", "sarb", "south african reserve bank",
     ),
-    "stocks": ("s&p", "nasdaq", "dow jones", "stock", "equity", "earnings", "quarterly earnings", "eps"),
-    "commodities": ("oil", "gold", "silver", "crude", "opec", "commodity", "natural gas"),
-    "elections": ("election", "president", "senate", "congress", "governor", "vote", "primary"),
-    "crypto": ("bitcoin", "btc", "ethereum", "eth", "crypto", "altcoin"),
+    "stocks": (
+        "s&p", "nasdaq", "dow jones", "stock", "equity", "earnings",
+        "quarterly earnings", "eps", "revenue", "market cap", "nvda", "nvidia",
+        "apple", "aapl", "tesla", "tsla", "microsoft", "msft", "amazon", "amzn",
+        "google", "alphabet", "meta", "palantir", "pltr",
+    ),
+    "commodities": ("oil", "gold", "silver", "crude", "opec", "commodity", "natural gas", "wti", "brent"),
+    "elections": (
+        "election", "president", "presidential", "senate", "congress", "governor",
+        "mayor", "parliament", "prime minister", "chancellor", "nominee", "approval rating",
+    ),
+    "crypto": ("bitcoin", "btc", "ethereum", "eth", "solana", "sol", "xrp", "crypto", "fdv", "airdrop"),
 }
 DEFAULT_CATEGORY = "other"
 ROADMAP_DOMAINS: frozenset[str] = frozenset(CATEGORY_KEYWORDS.keys())
-
-US_STATE_NAMES: tuple[str, ...] = (
-    "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
-    "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho",
-    "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana",
-    "maine", "maryland", "massachusetts", "michigan", "minnesota",
-    "mississippi", "missouri", "montana", "nebraska", "nevada",
-    "new hampshire", "new jersey", "new mexico", "new york",
-    "north carolina", "north dakota", "ohio", "oklahoma", "oregon",
-    "pennsylvania", "rhode island", "south carolina", "south dakota",
-    "tennessee", "texas", "utah", "vermont", "virginia", "washington",
-    "west virginia", "wisconsin", "wyoming",
-)
-
-US_STRONG_SIGNALS: tuple[str, ...] = (
-    "united states", "u.s.", "usa", "electoral college", "midterm",
-    "white house", "democratic nominee", "republican nominee",
-    "house of representatives", "democratic primary", "republican primary",
-)
-US_WEAK_SIGNALS: tuple[str, ...] = ("senate", "governor", "congress", "primary winner")
-
-NON_US_COUNTRY_SIGNALS: tuple[str, ...] = (
-    "japan", "korea", "china", "brazil", "argentina", "chile", "peru",
-    "mexico", "france", "germany", "italy", "spain", "uk", "united kingdom",
-    "britain", "india", "australia", "philippines", "indonesia", "canada",
-    "taiwan", "poland", "portugal", "netherlands", "sweden", "norway",
-    "turkey", "israel", "egypt", "nigeria", "kenya", "colombia",
-    "venezuela", "ireland", "greece", "austria", "switzerland", "belgium",
-    "romania",
-)
 
 SPORTS_SIGNALS: tuple[str, ...] = (
     "medal", "olympic", "olympics", "tournament", "championship",
@@ -98,20 +74,21 @@ SPORTS_SIGNALS: tuple[str, ...] = (
     "nhl", "ufc", "boxing", "wrestlemania", "grand prix", "match",
     "vs.", "vs ", "wins the game", "wins the match", "fight card",
     "pro football", "starting qb", "touchdown", "premier league",
-    "champions league", "la liga", "serie a", "bundesliga",
+    "champions league", "la liga", "serie a", "bundesliga", "mvp",
+    "dota", "counter-strike", "valorant", "league of legends", "esports",
+    "halftime", "exact score", "fc ", " cf ", "united fc", "city fc",
+    "formula 1", "f1 ", "nascar", "pga", "tennis", "atp", "wta", "cricket",
 )
 
 AMBIGUOUS_COMMODITY_KEYWORDS: frozenset[str] = frozenset({"gold", "silver"})
 PRICE_CONTEXT_SIGNALS: tuple[str, ...] = (
-    "price", "xau", "xag", "ounce", "$", "hit high", "hit low", "per ounce",
+    "price", "xau", "xag", "ounce", "$", "hit high", "hit low", "per ounce", "above", "below", "close",
 )
 
 TRUMP_BEHAVIOR_VERBS: tuple[str, ...] = (
     "insult", "mention", "tweet", "post", "say", "says", "said", "name",
     "named", "fire", "call", "publicly",
 )
-
-PRICE_HIT_GAP_CATEGORIES: frozenset[str] = frozenset({"stocks", "commodities", "crypto"})
 
 
 def word_in_text(keyword: str, text: str) -> bool:
@@ -122,7 +99,7 @@ def word_in_text(keyword: str, text: str) -> bool:
 def is_sports_market(haystack: str) -> bool:
     for sig in SPORTS_SIGNALS:
         stripped = sig.strip()
-        if "." in stripped:
+        if "." in stripped or " " in stripped:
             if stripped in haystack:
                 return True
         elif word_in_text(stripped, haystack):
@@ -138,27 +115,27 @@ def is_trump_behavior_market(haystack: str) -> bool:
     return any(word_in_text(verb, haystack) for verb in TRUMP_BEHAVIOR_VERBS)
 
 
+def is_micro_timeframe_noise(haystack: str) -> bool:
+    """Filter out 5-minute / 15-minute 'Bitcoin Up or Down - 2:00PM-2:15PM ET' coin-flip noise."""
+    if "up or down" in haystack and ("et" in haystack or "am" in haystack or "pm" in haystack):
+        return True
+    if re.search(r"\b\d{1,2}:\d{2}\s*(?:am|pm)\s*-\s*\d{1,2}:\d{2}\s*(?:am|pm)\b", haystack):
+        return True
+    return False
+
+
 def is_price_hit_gap_market(haystack: str) -> bool:
-    return word_in_text("hit", haystack) or bool(re.search(r"[↑↓]\s*\$?[\d,]+", haystack))
-
-
-def is_us_election(haystack: str, context_haystack: str) -> bool:
-    if any(word_in_text(sig, haystack) for sig in NON_US_COUNTRY_SIGNALS):
-        return False
-    if any(word_in_text(sig, haystack) for sig in US_STRONG_SIGNALS):
-        return True
-    if any(word_in_text(state, context_haystack) for state in US_STATE_NAMES):
-        return True
-    return any(word_in_text(sig, haystack) for sig in US_WEAK_SIGNALS)
+    return bool(re.search(r"[↑↓]\s*\$?[\d,]+", haystack))
 
 
 def categorize_market(question: str, tags: Iterable[str], event_title: str = "") -> str:
     haystack = " ".join([question or ""] + [t or "" for t in tags] + [event_title or ""]).lower()
-    context_haystack = " ".join([event_title or ""] + [t or "" for t in tags]).lower()
 
     if is_trump_behavior_market(haystack):
         return DEFAULT_CATEGORY
     if is_sports_market(haystack):
+        return DEFAULT_CATEGORY
+    if is_micro_timeframe_noise(haystack):
         return DEFAULT_CATEGORY
 
     for category, keywords in CATEGORY_KEYWORDS.items():
@@ -168,9 +145,7 @@ def categorize_market(question: str, tags: Iterable[str], event_title: str = "")
             if category == "commodities" and kw in AMBIGUOUS_COMMODITY_KEYWORDS:
                 if not any(ctx in haystack for ctx in PRICE_CONTEXT_SIGNALS):
                     continue
-            if category == "elections" and not is_us_election(haystack, context_haystack):
-                continue
-            if category in PRICE_HIT_GAP_CATEGORIES and is_price_hit_gap_market(haystack):
+            if category in {"stocks", "commodities", "crypto"} and is_price_hit_gap_market(haystack):
                 return DEFAULT_CATEGORY
             return category
     return DEFAULT_CATEGORY
@@ -212,7 +187,6 @@ def parse_end_date(raw: Any) -> datetime | None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt
     except (ValueError, TypeError):
-        logger.warning("Could not parse end date %r", raw)
         return None
 
 
@@ -260,8 +234,6 @@ def resolve_public_slug(raw_market: dict[str, Any]) -> str:
 
 
 def resolve_group_metadata(raw_market: dict[str, Any], question: str) -> tuple[str, str]:
-    """FIX BUG #1: Keep group_label empty if groupItemTitle is absent so a single
-    binary market inside an event wrapper is NOT mistaken for a named candidate bucket."""
     group_label = (raw_market.get("groupItemTitle") or "").strip()
     events = raw_market.get("events")
     event_title = ""
@@ -322,7 +294,12 @@ def filter_by_resolve_window(
 ) -> list[ScannedMarket]:
     now = now or datetime.now(timezone.utc)
     cutoff = now + timedelta(days=window_days)
-    return [m for m in markets if now <= m.end_date <= cutoff]
+    # Require at least 1 hour remaining and minimum volume/liquidity so dead 5-min markets are excluded
+    min_end = now + timedelta(hours=1)
+    return [
+        m for m in markets
+        if min_end <= m.end_date <= cutoff and (m.volume >= MIN_MARKET_VOLUME_USD or m.liquidity >= 150.0)
+    ]
 
 
 def filter_to_roadmap_domains(markets: Iterable[ScannedMarket]) -> list[ScannedMarket]:
@@ -358,6 +335,8 @@ def fetch_raw_markets_page(
     closed: bool = False,
     end_date_min: str | None = None,
     end_date_max: str | None = None,
+    order: str | None = None,
+    ascending: bool | None = None,
     session: requests.Session | None = None,
 ) -> list[dict[str, Any]]:
     sess = session or requests.Session()
@@ -371,6 +350,11 @@ def fetch_raw_markets_page(
         params["end_date_min"] = end_date_min
     if end_date_max:
         params["end_date_max"] = end_date_max
+    if order:
+        params["order"] = order
+    if ascending is not None:
+        params["ascending"] = str(ascending).lower()
+
     resp = _request_with_retry(sess, MARKETS_ENDPOINT, params)
     resp.raise_for_status()
     data = resp.json()
@@ -390,24 +374,50 @@ def fetch_all_raw_markets(
     end_date_max: str | None = None,
     session: requests.Session | None = None,
 ) -> list[dict[str, Any]]:
+    """Multi-pass deep scanner:
+    Pass 1: Top markets by 24h trading volume (captures major Fed, CPI, Stocks, Elections, Crypto).
+    Pass 2: Top markets by Orderbook Liquidity.
+    Pass 3: Date-bounded sweep for upcoming events.
+    """
     sess = session or requests.Session()
+    seen_ids: set[str] = set()
     all_markets: list[dict[str, Any]] = []
-    offset = 0
-    for _ in range(max_pages):
-        try:
-            page = fetch_raw_markets_page(
-                limit=page_limit, offset=offset, active=active, closed=closed,
-                end_date_min=end_date_min, end_date_max=end_date_max, session=sess,
-            )
-        except requests.exceptions.HTTPError as exc:
-            status = exc.response.status_code if exc.response is not None else None
-            if status == 422:
+
+    passes = [
+        {"order": "volume24hr", "ascending": False, "use_dates": False, "pages": 12},
+        {"order": "liquidityNum", "ascending": False, "use_dates": False, "pages": 10},
+        {"order": None, "ascending": None, "use_dates": True, "pages": max_pages},
+    ]
+
+    for p in passes:
+        offset = 0
+        for _ in range(int(p["pages"])):
+            try:
+                page = fetch_raw_markets_page(
+                    limit=page_limit,
+                    offset=offset,
+                    active=active,
+                    closed=closed,
+                    end_date_min=end_date_min if p["use_dates"] else None,
+                    end_date_max=end_date_max if p["use_dates"] else None,
+                    order=p["order"],
+                    ascending=p["ascending"],
+                    session=sess,
+                )
+            except requests.exceptions.HTTPError as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                if status in (400, 406, 422):
+                    break
+                raise
+            if not page:
                 break
-            raise
-        if not page:
-            break
-        all_markets.extend(page)
-        offset += len(page)
+            for item in page:
+                mid = str(item.get("id") or item.get("conditionId") or "")
+                if mid and mid not in seen_ids:
+                    seen_ids.add(mid)
+                    all_markets.append(item)
+            offset += len(page)
+
     return all_markets
 
 
